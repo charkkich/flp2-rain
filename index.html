@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FLP2 Rainfall — Model Accuracy Tracker</title>
+<title>FLP2 Rainfall — Forecast Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 :root{
@@ -20,452 +21,488 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
 
-/* NAV */
-.nav{background:var(--white);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:100;flex-wrap:wrap}
-.nav-brand{display:flex;align-items:center;gap:9px;padding:12px 0;margin-right:20px}
-.nav-logo{width:30px;height:30px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-.nav-title{font-size:14px;font-weight:700;color:var(--text)}
-.nav-sub{font-size:9px;color:var(--muted);font-family:var(--mono)}
-.nav-tabs{display:flex}
-.nt{padding:14px 16px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;user-select:none;transition:all .15s}
-.nt:hover{color:var(--blue)}.nt.on{color:var(--blue);border-bottom-color:var(--blue)}
-.nav-r{margin-left:auto;display:flex;align-items:center;gap:8px}
+/* ── HEADER ── */
+.hdr{background:var(--white);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.logo{width:32px;height:32px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.hdr-title{font-size:15px;font-weight:700}
+.hdr-sub{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.hdr-r{display:flex;align-items:center;gap:8px}
 .sdot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
 .sdot.ok{background:#22c55e}.sdot.warn{background:#f59e0b}
+.hdr-badge{font-size:10px;padding:3px 9px;border-radius:10px;border:1px solid;font-weight:600}
 
-/* PAGES */
-.pg{display:none}.pg.on{display:block}
-.wrap{max-width:900px;margin:0 auto;padding:20px 18px 48px}
+/* ── WRAP ── */
+.wrap{max-width:920px;margin:0 auto;padding:20px 18px 48px}
 
-/* CARDS */
-.card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
-.card-title{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+/* ── DATE TABS ── */
+.date-tab-bar{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.date-tab-scroll{display:flex;overflow-x:auto;padding:0;border-bottom:1px solid var(--border)}
+.date-tab-scroll::-webkit-scrollbar{height:3px}
+.date-tab-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.dtab{padding:12px 18px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:2.5px solid transparent;transition:all .15s;flex-shrink:0}
+.dtab:hover{color:var(--blue);background:var(--blue-bg)}
+.dtab.on{color:var(--blue);border-bottom-color:var(--blue);background:var(--blue-bg)}
+.dtab-today{color:var(--go)!important;border-bottom-color:var(--go)!important}
+.dtab-add{padding:12px 16px;color:var(--go);cursor:pointer;font-size:18px;border-left:1px solid var(--border);display:flex;align-items:center;flex-shrink:0}
+.dtab-add:hover{background:var(--go-bg)}
 
-/* API bar */
-.api-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.ac{background:var(--white);border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;gap:8px}
-.ac-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--dim)}
-.ac-dot.ok{background:var(--go)}.ac-dot.err{background:var(--stop)}.ac-dot.load{background:var(--watch);animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.ac-name{font-size:11px;font-weight:700}.ac-sub{font-size:9px;color:var(--muted);margin-top:1px}
-.ac-val{font-size:15px;font-weight:700;font-family:var(--mono);margin-left:auto}
+/* ── UPLOAD ── */
+.upload{border:1.5px dashed var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;margin-bottom:16px;background:var(--white)}
+.upload:hover,.upload.drag{border-color:var(--blue);background:var(--blue-bg)}
+.upload-icon{font-size:20px;flex-shrink:0}
+.upload-text h3{font-size:12px;font-weight:600}
+.upload-text p{font-size:11px;color:var(--muted);margin-top:1px}
+#fstatus{font-size:10px;color:var(--go);font-family:var(--mono);margin-top:2px}
+#file-input{display:none}
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);background:var(--blue);color:#fff}
+.btn:hover{opacity:.88}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:5px;cursor:pointer;border:1px solid var(--stop-bd);background:var(--stop-bg);color:var(--stop);font-family:var(--font)}
+.btn-ghost{padding:5px 12px;font-size:11px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--muted);font-family:var(--font)}
+.btn-ghost:hover{background:var(--bg)}
 
-/* Section */
-.sec{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:18px 0 10px;display:flex;align-items:center;gap:8px}
+/* ── SCOREBOARD ── */
+.scoreboard{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.sb{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center}
+.sb.win{border-color:var(--go);background:var(--go-bg)}
+.sb-rank{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:3px}
+.sb.win .sb-rank{color:var(--go)}
+.sb-name{font-size:13px;font-weight:700;margin-bottom:4px}
+.sb-mae{font-size:22px;font-weight:700;font-family:var(--mono)}
+.sb.win .sb-mae{color:var(--go)}
+.sb-sub{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* ── SECTION ── */
+.sec{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:16px 0 10px;display:flex;align-items:center;gap:8px}
 .sec::after{content:'';flex:1;height:1px;background:var(--border)}
 
-/* Forecast log table */
+/* ── 7-DAY CARDS ── */
+.day-cards{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-bottom:16px}
+.dc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:10px 5px;text-align:center;transition:transform .15s}
+.dc:hover{transform:translateY(-2px)}
+.dc.go{background:var(--go-bg);border-color:var(--go-bd)}
+.dc.watch{background:var(--watch-bg);border-color:var(--watch-bd)}
+.dc.stop{background:var(--stop-bg);border-color:var(--stop-bd)}
+.dc.has-actual{outline:2px solid var(--blue);outline-offset:1px}
+.dc-dow{font-size:9px;font-weight:700;margin-bottom:1px}
+.dc.go .dc-dow{color:var(--go)}.dc.watch .dc-dow{color:var(--watch)}.dc.stop .dc-dow{color:var(--stop)}.dc .dc-dow{color:var(--muted)}
+.dc-date{font-size:9px;color:var(--dim);margin-bottom:5px}
+.dc-act{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--go);line-height:1}
+.dc-fc{font-size:11px;font-family:var(--mono);color:var(--text);margin-top:3px;line-height:1.3}
+.dc-fc span{display:block;font-size:9px;color:var(--muted)}
+.dc-sig{display:inline-block;margin-top:5px;font-size:9px;font-weight:700;padding:2px 4px;border-radius:3px}
+.dc.go .dc-sig{background:var(--go-bd);color:var(--go)}
+.dc.watch .dc-sig{background:var(--watch-bd);color:var(--watch)}
+.dc.stop .dc-sig{background:var(--stop-bd);color:var(--stop)}
+.dc .dc-sig{background:var(--border);color:var(--muted)}
+.dc-err{font-size:8px;margin-top:3px;font-family:var(--mono)}
+.dc-err.good{color:var(--go)}.dc-err.mid{color:var(--watch)}.dc-err.bad{color:var(--stop)}
+
+/* ── TABLE ── */
+.card{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.card-hdr{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.card-title{font-size:13px;font-weight:700}
 .ftable{width:100%;border-collapse:collapse;font-size:12px}
 .ftable th{background:var(--bg);padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap}
 .ftable th:first-child,.ftable td:first-child{text-align:left}
 .ftable td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle}
 .ftable tr:last-child td{border-bottom:none}
 .ftable tr:hover td{background:#fafbff}
-.ftable tr.today-row td{background:var(--blue-bg)}
-.ftable tfoot td{background:var(--bg);font-weight:700;border-top:2px solid var(--border);border-bottom:none;font-size:12px}
+.ftable tfoot td{background:var(--bg);font-weight:700;border-top:2px solid var(--border);border-bottom:none}
 .mv{font-family:var(--mono);font-size:12px;font-weight:700}
-.err-good{color:var(--go)}.err-mid{color:var(--watch)}.err-bad{color:var(--stop)}.err-na{color:var(--dim)}
-
-/* Actual input */
-.act-input{width:58px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-family:var(--mono);font-size:12px;text-align:center;background:var(--bg);color:var(--text);transition:border-color .15s}
-.act-input:focus{outline:none;border-color:var(--blue)}
-.act-input.filled{background:#f0fdf4;border-color:var(--go-bd);color:var(--go)}
-
-/* Badge */
-.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700}
 .badge.go{background:var(--go-bd);color:var(--go)}
 .badge.watch{background:var(--watch-bd);color:var(--watch)}
 .badge.stop{background:var(--stop-bd);color:var(--stop)}
 .badge.na{background:var(--border);color:var(--muted)}
+.err-good{color:var(--go);font-size:10px;font-family:var(--mono)}
+.err-mid{color:var(--watch);font-size:10px;font-family:var(--mono)}
+.err-bad{color:var(--stop);font-size:10px;font-family:var(--mono)}
 
-/* MAE scoreboard */
-.scoreboard{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
-.sb{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;text-align:center;transition:all .2s}
-.sb.winner{border-color:var(--go);background:var(--go-bg)}
-.sb-rank{font-size:10px;font-weight:700;color:var(--muted);margin-bottom:4px}
-.sb.winner .sb-rank{color:var(--go)}
-.sb-name{font-size:13px;font-weight:700;margin-bottom:4px}
-.sb-mae{font-size:22px;font-weight:700;font-family:var(--mono)}
-.sb.winner .sb-mae{color:var(--go)}
-.sb-sub{font-size:10px;color:var(--muted);margin-top:2px}
-
-/* Chart */
+/* ── CHART ── */
 .chart-wrap{position:relative;width:100%;height:200px}
-.legend{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.legend{display:flex;gap:10px;flex-wrap:wrap}
 .leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
 .leg-sq{width:11px;height:11px;border-radius:3px;flex-shrink:0}
 
-/* Hourly page */
-.day-row{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
-.dp{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--muted);white-space:nowrap;transition:all .15s}
-.dp:hover,.dp.on{background:var(--blue);border-color:var(--blue);color:#fff}
-.signal{border-radius:12px;padding:16px 20px;margin-bottom:14px;display:flex;align-items:center;gap:14px}
-.signal.go{background:var(--go-bg);border:2px solid var(--go-bd)}
-.signal.wat{background:var(--watch-bg);border:2px solid var(--watch-bd)}
-.signal.stop{background:var(--stop-bg);border:2px solid var(--stop-bd)}
-.sig-em{font-size:32px;flex-shrink:0}
-.sig-title{font-size:19px;font-weight:700}
-.signal.go .sig-title{color:#15803d}.signal.wat .sig-title{color:#92400e}.signal.stop .sig-title{color:#991b1b}
-.sig-sub{font-size:12px;color:var(--muted);margin-top:3px}
-.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-.st{background:var(--white);border-radius:10px;padding:12px;border:1px solid var(--border);text-align:center}
-.st-num{font-size:24px;font-weight:700;font-family:var(--mono);color:var(--blue)}
-.st-lbl{font-size:11px;color:var(--muted);margin-top:3px}
-.tl-bars{display:flex;align-items:flex-end;gap:3px;height:80px;margin-bottom:5px}
-.bc{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;cursor:default}
-.bar{width:100%;border-radius:3px 3px 0 0;min-height:2px}
-.bc:hover .bar{opacity:.7}
-.bar-hr{font-size:8px;color:var(--dim);font-family:var(--mono)}
-.bc.now .bar-hr{color:var(--blue);font-weight:700}
-.bc.now .bar{box-shadow:0 0 0 1.5px var(--blue)}
-.rain-list .ri{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f2f8}
-.rain-list .ri:last-child{border-bottom:none}
-.ri-t{font-size:14px;font-weight:700;font-family:var(--mono);min-width:50px}
-.ri-track{flex:1;height:9px;background:#f0f2f8;border-radius:5px;overflow:hidden}
-.ri-fill{height:100%;border-radius:5px}
-.ri-mm{font-size:13px;font-weight:600;font-family:var(--mono);min-width:48px;text-align:right}
-.ri-lbl{font-size:11px;color:var(--muted);min-width:66px}
-.no-rain{text-align:center;padding:20px;color:var(--dim);font-size:13px}
-.week-card .wr{display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;border-radius:7px;padding:4px;transition:background .15s}
-.week-card .wr:hover{background:var(--bg)}
-.wd-lbl{font-size:11px;font-weight:600;color:var(--muted);min-width:56px;text-align:right}
-.wd-bars{flex:1;display:flex;gap:2px;height:16px;align-items:flex-end}
-.wd-b{flex:1;border-radius:2px}
-.wd-total{font-size:12px;font-weight:600;font-family:var(--mono);min-width:38px;text-align:right}
-
-/* Misc */
-.btn{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);background:var(--blue);color:#fff;transition:opacity .15s}
-.btn:hover{opacity:.85}
-.btn-sm{padding:4px 10px;font-size:11px;border-radius:6px;cursor:pointer;border:1px solid var(--stop-bd);background:var(--stop-bg);color:var(--stop);font-family:var(--font)}
-.btn-sm:hover{background:#fee2e2}
-.btn-ghost{padding:5px 12px;font-size:11px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--muted);font-family:var(--font)}
-.btn-ghost:hover{background:var(--bg)}
-.spin{text-align:center;padding:40px;color:var(--muted);display:none}
+/* ── SPINNER ── */
+.spin{text-align:center;padding:32px;color:var(--muted);display:none}
 .spin-ring{width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;margin:8px auto 0;animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-.foot{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:8px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+
+/* ── INFO ── */
 .info-box{background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:14px;line-height:1.6}
 
-@media(max-width:620px){
-  .api-bar,.scoreboard{grid-template-columns:repeat(2,1fr)}
-  .stats3{grid-template-columns:repeat(2,1fr)}
+.foot{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:8px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+
+@media(max-width:640px){
+  .scoreboard{grid-template-columns:repeat(2,1fr)}
+  .day-cards{grid-template-columns:repeat(4,1fr)}
   .wrap{padding:12px 12px 32px}
-  .nt{padding:12px 10px;font-size:12px}
 }
 </style>
 </head>
 <body>
 
-<nav class="nav">
-  <div class="nav-brand">
-    <div class="nav-logo">🌧</div>
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="logo">🌧</div>
     <div>
-      <div class="nav-title">FLP2 Rainfall Tracker</div>
-      <div class="nav-sub">18.9926°N 98.9706°E · San Sai</div>
+      <div class="hdr-title">FLP2 Forecast Accuracy Tracker</div>
+      <div class="hdr-sub">18.9926°N 98.9706°E · San Sai, Chiang Mai</div>
     </div>
   </div>
-  <div class="nav-tabs">
-    <div class="nt on" onclick="showPg('p1',this)">📊 Accuracy Tracker</div>
-    <div class="nt" onclick="showPg('p2',this);lazyHourly()">⏱ Rain Timing</div>
+  <div class="hdr-r">
+    <span class="hdr-badge" style="color:var(--go);background:var(--go-bg);border-color:var(--go-bd)">● GFS · ECMWF · ICON · Best</span>
+    <div class="sdot" id="sdot"></div>
   </div>
-  <div class="nav-r"><div class="sdot" id="sdot"></div></div>
-</nav>
+</div>
 
-<!-- ═══════════════════════════════════════
-     PAGE 1 — ACCURACY TRACKER
-═══════════════════════════════════════ -->
-<div class="pg on" id="p1">
 <div class="wrap">
 
-  <div class="info-box">
-    💡 <strong>วิธีใช้:</strong> ทุกวันที่เปิดหน้านี้ ระบบจะ<strong>บันทึก Forecast 7 วันล่วงหน้าจาก 4 model</strong>ไว้อัตโนมัติ
-    · กรอก <strong>Actual</strong> ในคอลัมน์ซ้ายเพื่อคำนวณว่า model ไหนแม่นที่สุด
+  <div class="info-box" id="info-box">
+    💡 <strong>วิธีใช้:</strong>
+    ทุกวันที่เปิดเว็บ ระบบจะ<strong>บันทึก Forecast 7 วันล่วงหน้าจาก 4 model</strong>ไว้อัตโนมัติ แล้วสร้าง tab ใหม่ให้ ·
+    <strong>อัปโหลดไฟล์ Actual</strong> จาก EWS เพื่อดูว่า model ไหนแม่นสุด
   </div>
 
-  <!-- API status -->
-  <div class="api-bar" id="api-bar">
-    <div class="ac"><div class="ac-dot load"></div><div><div class="ac-name">GFS</div><div class="ac-sub">NOAA USA</div></div><div class="ac-val" style="color:#2563eb">...</div></div>
-    <div class="ac"><div class="ac-dot load"></div><div><div class="ac-name">ECMWF</div><div class="ac-sub">European</div></div><div class="ac-val" style="color:#7c3aed">...</div></div>
-    <div class="ac"><div class="ac-dot load"></div><div><div class="ac-name">ICON</div><div class="ac-sub">German DWD</div></div><div class="ac-val" style="color:#0d9488">...</div></div>
-    <div class="ac"><div class="ac-dot load"></div><div><div class="ac-name">Best Match</div><div class="ac-sub">Auto-select</div></div><div class="ac-val" style="color:#d97706">...</div></div>
+  <!-- Upload -->
+  <div class="upload" id="uzone" onclick="document.getElementById('file-input').click()">
+    <div class="upload-icon">📂</div>
+    <div class="upload-text">
+      <h3>อัปโหลดไฟล์ Actual (.xlsx) จาก EWS WeatherDashboard</h3>
+      <p>ลากมาวาง หรือคลิกเลือกไฟล์ · ระบบเปรียบเทียบกับ Forecast ทั้ง 4 model อัตโนมัติ</p>
+      <div id="fstatus">ยังไม่มีไฟล์ Actual</div>
+    </div>
+    <button class="btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">เลือกไฟล์</button>
+    <input type="file" id="file-input" accept=".xlsx,.xls">
   </div>
 
-  <!-- MAE Scoreboard -->
-  <div class="sec">🏆 ความแม่นยำรวม (MAE — ยิ่งน้อยยิ่งดี)</div>
-  <div class="scoreboard" id="scoreboard">
+  <!-- Date tabs -->
+  <div class="date-tab-bar">
+    <div style="display:flex;align-items:center">
+      <div class="date-tab-scroll" id="date-tabs"></div>
+      <div class="dtab-add" onclick="addTodayTab()" title="บันทึก Forecast วันนี้">＋</div>
+    </div>
+    <div id="tab-content" style="padding:16px"></div>
+  </div>
+
+  <!-- Overall Scoreboard -->
+  <div class="sec">🏆 ความแม่นยำรวมทุก tab (MAE — ยิ่งน้อยยิ่งดี)</div>
+  <div class="scoreboard" id="global-sb">
     <div class="sb"><div class="sb-rank">รอข้อมูล</div><div class="sb-name" style="color:#2563eb">GFS</div><div class="sb-mae" style="color:var(--dim)">—</div><div class="sb-sub">mm เฉลี่ย</div></div>
     <div class="sb"><div class="sb-rank">รอข้อมูล</div><div class="sb-name" style="color:#7c3aed">ECMWF</div><div class="sb-mae" style="color:var(--dim)">—</div><div class="sb-sub">mm เฉลี่ย</div></div>
     <div class="sb"><div class="sb-rank">รอข้อมูล</div><div class="sb-name" style="color:#0d9488">ICON</div><div class="sb-mae" style="color:var(--dim)">—</div><div class="sb-sub">mm เฉลี่ย</div></div>
     <div class="sb"><div class="sb-rank">รอข้อมูล</div><div class="sb-name" style="color:#d97706">Best Match</div><div class="sb-mae" style="color:var(--dim)">—</div><div class="sb-sub">mm เฉลี่ย</div></div>
   </div>
 
-  <!-- Chart -->
-  <div class="sec">กราฟ Actual vs Forecast</div>
-  <div class="card">
-    <div class="card-title">
-      <span>ปริมาณฝนรายวัน (mm)</span>
-      <div class="legend" id="cleg"></div>
-    </div>
-    <div class="chart-wrap"><canvas id="mc" role="img" aria-label="Rainfall comparison chart"></canvas></div>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px">
+    <button class="btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn-sm" onclick="clearAll()">ลบข้อมูลทั้งหมด</button>
   </div>
 
-  <!-- Forecast log table -->
-  <div class="sec">
-    ตาราง Forecast ที่บันทึก + Actual
-    <div style="display:flex;gap:6px;margin-left:auto">
-      <button class="btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
-      <button class="btn-sm" onclick="clrAll()">ลบทั้งหมด</button>
-    </div>
-  </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <div style="overflow-x:auto">
-    <table class="ftable" id="ftable">
-      <thead><tr>
-        <th style="text-align:left;min-width:90px">วันที่</th>
-        <th style="min-width:80px">Actual<br><span style="font-weight:400;font-size:9px">กรอกเอง (mm)</span></th>
-        <th style="min-width:80px;color:#2563eb">GFS</th>
-        <th style="min-width:80px;color:#7c3aed">ECMWF</th>
-        <th style="min-width:80px;color:#0d9488">ICON</th>
-        <th style="min-width:90px;color:#d97706">Best Match</th>
-        <th style="min-width:72px">สัญญาณ</th>
-        <th style="min-width:72px">แม่นสุด</th>
-      </tr></thead>
-      <tbody id="ftbody"></tbody>
-      <tfoot id="ftfoot"></tfoot>
-    </table>
-    </div>
-    <div style="background:var(--purple-bg);border-top:1px solid var(--purple-bd);padding:8px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span style="font-size:10px;color:var(--purple)" id="store-info">บันทึกอัตโนมัติใน browser ทุกวันที่เปิด</span>
-    </div>
-  </div>
+  <div class="spin" id="sp"><div>กำลังโหลด Forecast จาก 4 models...</div><div class="spin-ring"></div></div>
 
   <div class="foot">
     <span>Forecast = Open-Meteo · GFS · ECMWF · ICON · Best Match · พิกัด 18.9926°N 98.9706°E</span>
-    <span id="lu1">—</span>
+    <span id="lupd">—</span>
   </div>
-</div>
-</div>
-
-<!-- ═══════════════════════════════════════
-     PAGE 2 — RAIN TIMING
-═══════════════════════════════════════ -->
-<div class="pg" id="p2">
-<div class="wrap">
-  <div class="day-row" id="day-row"></div>
-  <div class="spin" id="sp2"><div>กำลังโหลด...</div><div class="spin-ring"></div></div>
-  <div id="d2">
-    <div class="signal" id="sig" style="display:none">
-      <div class="sig-em" id="sig-em"></div>
-      <div><div class="sig-title" id="sig-t"></div><div class="sig-sub" id="sig-s"></div></div>
-    </div>
-    <div class="stats3">
-      <div class="st"><div class="st-num" id="h-tot">—</div><div class="st-lbl">mm รวมทั้งวัน</div></div>
-      <div class="st"><div class="st-num" id="h-hrs">—</div><div class="st-lbl">ชั่วโมงที่ฝนตก</div></div>
-      <div class="st"><div class="st-num" id="h-pk">—</div><div class="st-lbl" id="h-pkt">mm/hr สูงสุด</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title" id="tl-title">ฝนรายชั่วโมง</div>
-      <div class="tl-bars" id="tl-bars"></div>
-      <div class="bar-hr" style="display:flex;justify-content:space-between;font-size:9px;color:var(--dim);padding:0 2px">
-        <span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
-      </div>
-      <div class="legend" style="margin-top:10px">
-        <span class="leg"><span class="leg-sq" style="background:#bfdbfe"></span>เบา</span>
-        <span class="leg"><span class="leg-sq" style="background:#3b82f6"></span>ปานกลาง</span>
-        <span class="leg"><span class="leg-sq" style="background:#f59e0b"></span>หนัก</span>
-        <span class="leg"><span class="leg-sq" style="background:#ef4444"></span>หนักมาก</span>
-      </div>
-    </div>
-    <div class="card rain-list">
-      <div class="card-title">ชั่วโมงที่มีฝน</div>
-      <div id="rl"></div>
-    </div>
-    <div class="card week-card">
-      <div class="card-title">ภาพรวม 10 วัน (คลิกเพื่อดูรายละเอียด)</div>
-      <div id="wk"></div>
-    </div>
-  </div>
-  <div class="foot">
-    <span>Open-Meteo Best Match · Hourly</span>
-    <span id="lu2">—</span>
-  </div>
-</div>
 </div>
 
 <script>
-/* ─── CONSTANTS ─── */
-const LAT=18.9926, LON=98.9706, GO=5, WATCH=20;
+const LAT=18.9926,LON=98.9706,GO=5,WATCH=20;
 const DAYS=['อา','จ','อ','พ','พฤ','ศ','ส'];
 const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-const LS_FC='flp2_fc_v5', LS_ACT='flp2_act_v5';
-const today=new Date();
-const todayStr=toIso(today);
-
+const LS='flp2_v6';
 const MODELS={
-  gfs:  {name:'GFS',   color:'#2563eb', model:'gfs_seamless'},
-  ecmwf:{name:'ECMWF', color:'#7c3aed', model:'ecmwf_ifs025'},
-  icon: {name:'ICON',  color:'#0d9488', model:'icon_seamless'},
-  best: {name:'Best',  color:'#d97706', model:'best_match'},
+  gfs:  {name:'GFS',   color:'#2563eb',model:'gfs_seamless'},
+  ecmwf:{name:'ECMWF', color:'#7c3aed',model:'ecmwf_ifs025'},
+  icon: {name:'ICON',  color:'#0d9488',model:'icon_seamless'},
+  best: {name:'Best',  color:'#d97706',model:'best_match'},
 };
+const MEDALS=['🥇','🥈','🥉','4️⃣'];
 
-/* ─── UTILS ─── */
+let store={tabs:{}}; // tabs: { saveDate: { forecasts:{date:{gfs,ecmwf,icon,best}}, actuals:{date:mm} } }
+let actualData={}; // จากไฟล์ xlsx
+let activeTab='';
+let chartInst=null;
+const today=new Date(), todayStr=toIso(today);
+
+/* ── UTILS ── */
 function toIso(d){return d.toISOString().split('T')[0]}
 function fromIso(s){return new Date(s+'T00:00:00')}
 function fmtL(s){const d=fromIso(s);return `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`}
 function fmtS(s){const d=fromIso(s);return `${DAYS[d.getDay()]} ${d.getDate()}`}
-function sigCls(v){return v===null?'na':v<GO?'go':v<=WATCH?'watch':'stop'}
-function sigTxt(v){return v===null?'—':v<GO?'ไถได้':v<=WATCH?'เฝ้าระวัง':'ห้ามไถ'}
-function bcolor(mm){if(mm<=0)return '#e8ecf8';if(mm<1)return '#dbeafe';if(mm<2)return '#bfdbfe';if(mm<7)return '#3b82f6';if(mm<20)return '#f59e0b';return '#ef4444'}
-function rlabel(mm){return mm<2?'เบา':mm<7?'ปานกลาง':mm<20?'หนัก':'หนักมาก'}
-function rlcolor(mm){return mm<7?'#3b82f6':mm<20?'#f59e0b':'#ef4444'}
+function cls(v){return v===null||v===undefined?'na':v<GO?'go':v<=WATCH?'watch':'stop'}
+function sigTxt(v){return v===null||v===undefined?'—':v<GO?'ไถได้':v<=WATCH?'เฝ้าระวัง':'ห้ามไถ'}
 
-/* ─── STORAGE ─── */
-// fc_log: { date: { gfs:x, ecmwf:x, icon:x, best:x, fc_for:[d+1..d+7 list of {date,gfs,ecmwf,icon,best}] } }
-// act_log: { date: mm }
-function loadFC(){try{return JSON.parse(localStorage.getItem(LS_FC)||'{}')}catch(e){return {}}}
-function saveFC(d){try{localStorage.setItem(LS_FC,JSON.stringify(d))}catch(e){}}
-function loadAct(){try{return JSON.parse(localStorage.getItem(LS_ACT)||'{}')}catch(e){return {}}}
-function saveAct(d){try{localStorage.setItem(LS_ACT,JSON.stringify(d))}catch(e){}}
+/* ── STORAGE ── */
+function load(){try{const d=localStorage.getItem(LS);store=d?JSON.parse(d):{tabs:{}};}catch(e){store={tabs:{}};}}
+function save(){try{localStorage.setItem(LS,JSON.stringify(store));}catch(e){}}
 
-/* ─── FETCH ─── */
-async function fetchD(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+/* ── UPLOAD ── */
+const uz=document.getElementById('uzone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag')});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');handleFile(e.dataTransfer.files[0])});
+document.getElementById('file-input').addEventListener('change',e=>handleFile(e.target.files[0]));
 
-/* ─── PAGE SWITCH ─── */
-function showPg(id,tab){
-  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
-  document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
-  document.getElementById(id).classList.add('on');tab.classList.add('on');
-}
-
-/* ═══════════════════════════════════════
-   PAGE 1 — ACCURACY TRACKER
-═══════════════════════════════════════ */
-let fcData={gfs:{},ecmwf:{},icon:{},best:{}}; // today's 8-day fc
-let fcLog={}, actLog={}, chartInst=null;
-
-async function initP1(){
-  fcLog=loadFC(); actLog=loadAct();
-  // Fetch all 4 models
-  const base=`latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&forecast_days=8`;
-  const ab=document.getElementById('api-bar');ab.innerHTML='';
-  let anyOk=false;
-
-  await Promise.allSettled(Object.entries(MODELS).map(async([k,m])=>{
-    const div=document.createElement('div');div.className='ac';
-    div.innerHTML=`<div class="ac-dot load" id="dot-${k}"></div><div><div class="ac-name">${m.name}</div><div class="ac-sub">${k==='gfs'?'NOAA USA':k==='ecmwf'?'European':k==='icon'?'German DWD':'Auto-select'}</div></div><div class="ac-val" id="val-${k}" style="color:${m.color}">...</div>`;
-    ab.appendChild(div);
-    try{
-      const d=await fetchD(`https://api.open-meteo.com/v1/forecast?${base}&models=${m.model}`);
-      fcData[k]={};
-      d.daily.time.forEach((t,i)=>{const v=d.daily.precipitation_sum[i];fcData[k][t]=v!==null?Math.round(v*10)/10:0;});
-      document.getElementById(`dot-${k}`).className='ac-dot ok';
-      document.getElementById(`val-${k}`).textContent=(fcData[k][todayStr]??'—');
-      anyOk=true;
-    }catch(e){
-      document.getElementById(`dot-${k}`).className='ac-dot err';
-      document.getElementById(`val-${k}`).textContent='err';
-    }
-  }));
-
-  document.getElementById('sdot').className=anyOk?'sdot ok':'sdot warn';
-
-  // บันทึก forecast วันนี้ (7 วันล่วงหน้า จากวันนี้)
-  if(anyOk){
-    if(!fcLog[todayStr]) fcLog[todayStr]={saved:todayStr, forecasts:{}};
-    for(let n=0;n<8;n++){
-      const d=new Date(today);d.setDate(today.getDate()+n);
-      const ds=toIso(d);
-      if(!fcLog[todayStr].forecasts[ds]) fcLog[todayStr].forecasts[ds]={};
-      Object.keys(MODELS).forEach(k=>{
-        if(fcData[k][ds]!==undefined)
-          fcLog[todayStr].forecasts[ds][k]=fcData[k][ds];
+function handleFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+    const by={};
+    rows.forEach(r=>{
+      let dv=r['Date']||r['date']||r['DATE'];if(!dv)return;
+      let d=dv instanceof Date?dv:typeof dv==='number'?new Date(Math.round((dv-25569)*86400*1000)):new Date(dv);
+      if(isNaN(d))return;
+      const iso=toIso(d);
+      const p=parseFloat(r['Precip..Accum.']||0);
+      if(!by[iso]||p>by[iso])by[iso]=p;
+    });
+    actualData={};
+    Object.entries(by).sort().forEach(([d,v])=>{actualData[d]=Math.round(v*25.4*10)/10});
+    // sync actual ลงทุก tab
+    Object.keys(store.tabs).forEach(saveDate=>{
+      if(!store.tabs[saveDate].actuals)store.tabs[saveDate].actuals={};
+      Object.entries(actualData).forEach(([d,v])=>{
+        store.tabs[saveDate].actuals[d]=v;
       });
-    }
-    saveFC(fcLog);
-  }
-
-  renderP1();
+    });
+    save();
+    const ks=Object.keys(actualData).sort();
+    document.getElementById('fstatus').textContent=
+      ks.length?`✓ ${file.name} · ${ks.length} วัน (${fmtL(ks[0])} – ${fmtL(ks[ks.length-1])})`:'ไม่พบข้อมูล';
+    renderAll();
+  };
+  reader.readAsArrayBuffer(file);
 }
 
-function renderP1(){
-  fcLog=loadFC(); actLog=loadAct();
+/* ── FETCH ── */
+async function fetchModel(modelKey){
+  const m=MODELS[modelKey];
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&forecast_days=8&models=${m.model}`;
+  const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);
+  const j=await r.json();
+  const out={};
+  j.daily.time.forEach((t,i)=>{const v=j.daily.precipitation_sum[i];out[t]=v!==null?Math.round(v*10)/10:0;});
+  return out;
+}
 
-  // สร้าง "view" — สำหรับแต่ละวันที่ตรงกับวันนี้หรือก่อนหน้า
-  // เอา forecast ที่บันทึกจาก "วันที่ forecast นั้นถูกบันทึก" มาเปรียบเทียบ
-  // โดยใช้ fcLog[saveDate].forecasts[targetDate]
-  // เราต้องการ: สำหรับแต่ละ targetDate → ใช้ forecast ที่บันทึกตั้งแต่ targetDate-7 ถึง targetDate
-
-  // รวมวันทั้งหมดที่มี forecast หรือ actual
-  const allTargetDates=new Set();
-  Object.values(fcLog).forEach(entry=>{
-    Object.keys(entry.forecasts||{}).forEach(d=>allTargetDates.add(d));
-  });
-  Object.keys(actLog).forEach(d=>allTargetDates.add(d));
-  const sortedDates=[...allTargetDates].sort();
-
-  // สำหรับแต่ละ targetDate → หา forecast ที่ดีที่สุด (ใช้ค่าจากวัน save ที่ใกล้ที่สุดก่อน targetDate)
-  function getFcForDate(targetDate){
-    const out={};
-    // หา saveDate ที่ใกล้ที่สุดก่อนหรือเท่ากับ targetDate
-    const saveDates=Object.keys(fcLog).sort().filter(s=>s<=targetDate);
-    if(saveDates.length===0)return out;
-    // ใช้ saveDate ล่าสุดที่มี forecast สำหรับ targetDate
-    for(let i=saveDates.length-1;i>=0;i--){
-      const entry=fcLog[saveDates[i]];
-      const fc=entry.forecasts?.[targetDate];
-      if(fc&&Object.keys(fc).length>0){
-        Object.assign(out,fc);
-        break;
-      }
-    }
-    return out;
+/* ── ADD TODAY TAB ── */
+async function addTodayTab(){
+  if(store.tabs[todayStr]){
+    // tab มีแล้ว — switch ไปเท่านั้น
+    switchTab(todayStr);return;
   }
+  document.getElementById('sp').style.display='block';
+  const tab={forecasts:{},actuals:{...actualData},savedAt:new Date().toISOString()};
+  let ok=false;
+  await Promise.allSettled(Object.keys(MODELS).map(async k=>{
+    try{
+      const fc=await fetchModel(k);
+      // เก็บ forecast 7 วันล่วงหน้าจากวันนี้
+      for(let n=0;n<8;n++){
+        const d=new Date(today);d.setDate(today.getDate()+n);
+        const ds=toIso(d);
+        if(!tab.forecasts[ds])tab.forecasts[ds]={};
+        if(fc[ds]!==undefined)tab.forecasts[ds][k]=fc[ds];
+      }
+      ok=true;
+    }catch(e){}
+  }));
+  document.getElementById('sdot').className=ok?'sdot ok':'sdot warn';
+  store.tabs[todayStr]=tab;
+  save();
+  document.getElementById('sp').style.display='none';
+  renderAll();
+  switchTab(todayStr);
+}
 
-  // คำนวณ MAE
-  const maeSums={gfs:0,ecmwf:0,icon:0,best:0};
-  const maeCnts={gfs:0,ecmwf:0,icon:0,best:0};
-  sortedDates.forEach(d=>{
-    const act=actLog[d];if(act===undefined||act===null)return;
-    const fc=getFcForDate(d);
+/* ── SWITCH TAB ── */
+function switchTab(saveDate){
+  activeTab=saveDate;
+  document.querySelectorAll('.dtab').forEach(t=>{
+    t.classList.toggle('on',t.dataset.date===saveDate);
+  });
+  renderTabContent(saveDate);
+}
+
+/* ── RENDER ALL ── */
+function renderAll(){
+  renderDateTabs();
+  renderGlobalScoreboard();
+  document.getElementById('lupd').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
+}
+
+function renderDateTabs(){
+  const bar=document.getElementById('date-tabs');
+  bar.innerHTML='';
+  const dates=Object.keys(store.tabs).sort();
+  if(dates.length===0){
+    document.getElementById('tab-content').innerHTML=
+      '<div style="text-align:center;padding:32px;color:var(--dim);font-size:13px">กด <strong>＋</strong> เพื่อบันทึก Forecast วันนี้เป็น tab แรก</div>';
+    return;
+  }
+  dates.forEach(d=>{
+    const isToday=d===todayStr;
+    const tab=document.createElement('div');
+    tab.className='dtab'+(d===activeTab?' on':'')+(isToday?' dtab-today':'');
+    tab.dataset.date=d;
+    const dt=fromIso(d);
+    tab.innerHTML=`<div>Forecast ${dt.getDate()} ${MON[dt.getMonth()]}</div><div style="font-size:9px;color:var(--dim);font-family:var(--mono)">${isToday?'วันนี้':''}</div>`;
+    tab.onclick=()=>switchTab(d);
+    bar.appendChild(tab);
+  });
+  // render active tab content
+  if(!activeTab||!store.tabs[activeTab])activeTab=dates[dates.length-1];
+  renderTabContent(activeTab);
+}
+
+function renderTabContent(saveDate){
+  const tab=store.tabs[saveDate];
+  if(!tab)return;
+  const content=document.getElementById('tab-content');
+  const saveDt=fromIso(saveDate);
+  const fcDates=Object.keys(tab.forecasts).sort();
+  const actuals=tab.actuals||{};
+
+  // คำนวณ MAE ของ tab นี้
+  const maeSums={},maeCnts={};
+  Object.keys(MODELS).forEach(k=>{maeSums[k]=0;maeCnts[k]=0;});
+  fcDates.forEach(d=>{
+    const act=actuals[d];if(act===undefined||act===null)return;
+    const fc=tab.forecasts[d]||{};
     Object.keys(MODELS).forEach(k=>{
       if(fc[k]!==undefined){maeSums[k]+=Math.abs(fc[k]-act);maeCnts[k]++;}
     });
   });
-  const maes={};
-  Object.keys(MODELS).forEach(k=>{if(maeCnts[k]>0)maes[k]=maeSums[k]/maeCnts[k];});
+  const maes={};Object.keys(MODELS).forEach(k=>{if(maeCnts[k]>0)maes[k]=maeSums[k]/maeCnts[k];});
+  const ranked=Object.entries(maes).sort((a,b)=>a[1]-b[1]);
+  const winK=ranked[0]?.[0];
 
-  // Scoreboard
-  const ranks=Object.entries(maes).sort((a,b)=>a[1]-b[1]);
-  const medals=['🥇','🥈','🥉','4️⃣'];
-  const sb=document.getElementById('scoreboard');sb.innerHTML='';
-  Object.keys(MODELS).forEach(k=>{
+  // ── TAB SCOREBOARD ──
+  let sbHTML=`<div class="sec">🏆 ความแม่นยำ Forecast ${saveDt.getDate()} ${MON[saveDt.getMonth()]} · MAE</div>
+  <div class="scoreboard">`;
+  Object.keys(MODELS).forEach((k,i)=>{
     const m=MODELS[k];const mae=maes[k];
-    const rank=ranks.findIndex(r=>r[0]===k);
-    const isWin=rank===0&&mae!==undefined;
-    const div=document.createElement('div');div.className='sb'+(isWin?' winner':'');
-    div.innerHTML=`
-      <div class="sb-rank">${mae!==undefined?(medals[rank]||'')+(ranks.length>1?` อันดับ ${rank+1}`:''):'รอข้อมูล'}</div>
+    const rank=ranked.findIndex(r=>r[0]===k);
+    const isWin=k===winK&&mae!==undefined;
+    sbHTML+=`<div class="sb${isWin?' win':''}">
+      <div class="sb-rank">${mae!==undefined?MEDALS[rank]:'รอข้อมูล'}</div>
       <div class="sb-name" style="color:${m.color}">${m.name}</div>
-      <div class="sb-mae" ${isWin?'style="color:var(--go)"':mae!==undefined?`style="color:${rank===1?'var(--watch)':rank===2?'var(--stop)':'var(--muted)'}"`:''}>${mae!==undefined?mae.toFixed(1):'—'}</div>
-      <div class="sb-sub">${mae!==undefined?`mm เฉลี่ย (${maeCnts[k]} วัน)`:'mm เฉลี่ย'}</div>`;
-    sb.appendChild(div);
+      <div class="sb-mae" style="color:${isWin?'var(--go)':mae!==undefined?'var(--text)':'var(--dim)'}">${mae!==undefined?mae.toFixed(1):'—'}</div>
+      <div class="sb-sub">${mae!==undefined?`mm (${maeCnts[k]} วัน)`:'mm เฉลี่ย'}</div>
+    </div>`;
   });
+  sbHTML+='</div>';
 
-  // Chart
-  const chartDates=sortedDates.slice(-14); // แสดง 14 วันล่าสุด
-  const labels=chartDates.map(fmtS);
+  // ── 7-DAY CARDS ──
+  const bestModel=winK||'best';
+  let cardsHTML=`<div class="sec">Forecast 7 วัน — บันทึกเมื่อ ${fmtL(saveDate)}</div><div class="day-cards">`;
+  fcDates.forEach(d=>{
+    const fc=tab.forecasts[d]||{};
+    const act=actuals[d];
+    const bestFcVal=fc[bestModel]??fc.best??fc.gfs;
+    const dispVal=bestFcVal;
+    const hasAct=act!==undefined&&act!==null;
+    const err=hasAct&&dispVal!==undefined?Math.abs(dispVal-act):null;
+    const errCls=err===null?'':err<3?'good':err<8?'mid':'bad';
+    const useCls=hasAct?cls(act):dispVal!==undefined?cls(dispVal):'';
+    const dt=fromIso(d);
+    cardsHTML+=`<div class="dc ${useCls}${hasAct?' has-actual':''}">
+      <div class="dc-dow">${DAYS[dt.getDay()]}</div>
+      <div class="dc-date">${dt.getDate()} ${MON[dt.getMonth()]}</div>
+      ${hasAct?`<div class="dc-act">${act.toFixed(1)}</div><div style="font-size:9px;color:var(--go)">Actual</div>`:''}
+      ${dispVal!==undefined?`<div class="dc-fc">${dispVal.toFixed(1)}<span>Fc(${MODELS[bestModel]?.name||'Best'})</span></div>`:'<div class="dc-fc" style="color:var(--dim)">—</div>'}
+      <div class="dc-sig">${hasAct?sigTxt(act):dispVal!==undefined?sigTxt(dispVal):'—'}</div>
+      ${err!==null?`<div class="dc-err ${errCls}">err: ${err.toFixed(1)}</div>`:''}
+    </div>`;
+  });
+  cardsHTML+='</div>';
+
+  // ── DETAIL TABLE ──
+  let tableRows='';
+  const maefK={gfs:[],ecmwf:[],icon:[],best:[]};
+  fcDates.forEach(d=>{
+    const fc=tab.forecasts[d]||{};
+    const act=actuals[d];
+    const hasAct=act!==undefined&&act!==null;
+    const errors={};
+    if(hasAct)Object.keys(MODELS).forEach(k=>{if(fc[k]!==undefined)errors[k]=Math.abs(fc[k]-act);});
+    const rowWin=Object.keys(errors).length?Object.keys(errors).reduce((a,b)=>errors[b]<errors[a]?b:a):null;
+    if(hasAct)Object.keys(errors).forEach(k=>maefK[k].push(errors[k]));
+    const actCell=hasAct
+      ?`<span class="badge ${cls(act)}">${act.toFixed(1)}</span>`
+      :`<span style="color:var(--dim);font-size:11px">รอไฟล์</span>`;
+    const fcCells=Object.keys(MODELS).map(k=>{
+      const v=fc[k];if(v===undefined)return `<span style="color:var(--dim)">—</span>`;
+      const eStr=hasAct&&errors[k]!==undefined
+        ?` <span class="err-${errors[k]<3?'good':errors[k]<8?'mid':'bad'}">${errors[k].toFixed(1)}</span>`:'';
+      return `<span class="mv" style="color:${MODELS[k].color}">${v.toFixed(1)}</span>${eStr}${k===rowWin&&hasAct?' 🏆':''}`;
+    }).map(c=>`<td>${c}</td>`).join('');
+    tableRows+=`<tr>
+      <td style="font-family:var(--mono);font-size:11px">${fmtL(d)}</td>
+      <td>${actCell}</td>
+      ${fcCells}
+      <td><span class="badge ${cls(hasAct?act:fc[bestModel])}">${sigTxt(hasAct?act:fc[bestModel])}</span></td>
+      <td>${rowWin?`<span style="font-size:11px;font-weight:700;color:${MODELS[rowWin].color}">${MODELS[rowWin].name}</span>`:'<span style="color:var(--dim)">—</span>'}</td>
+    </tr>`;
+  });
+  // MAE footer
+  const maeVals={};Object.keys(MODELS).forEach(k=>{if(maefK[k].length>0)maeVals[k]=maefK[k].reduce((a,b)=>a+b,0)/maefK[k].length;});
+  const mW=Object.keys(maeVals).length?Object.keys(maeVals).reduce((a,b)=>maeVals[b]<maeVals[a]?b:a):null;
+  const maeCells=Object.keys(MODELS).map(k=>{
+    const v=maeVals[k];if(v===undefined)return `<td style="color:var(--dim)">—</td>`;
+    return `<td style="color:${MODELS[k].color};font-weight:${k===mW?700:500}">${v.toFixed(1)} mm${k===mW?' 🏆':''}</td>`;
+  }).join('');
+
+  let chartData='';// will render after inject
+
+  content.innerHTML=sbHTML+cardsHTML+`
+  <div class="sec">ตารางเปรียบเทียบรายวัน</div>
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">Forecast vs Actual — ${fmtL(saveDate)} ถึง ${fmtL(fcDates[fcDates.length-1])}</div>
+      <div class="legend">
+        <span class="leg"><span class="leg-sq" style="background:#16a34a"></span>Actual</span>
+        ${Object.entries(MODELS).map(([k,m])=>`<span class="leg"><span class="leg-sq" style="background:${m.color}"></span>${m.name}</span>`).join('')}
+      </div>
+    </div>
+    <div style="padding:14px 16px"><div class="chart-wrap"><canvas id="tab-chart" role="img" aria-label="Forecast vs actual chart"></canvas></div></div>
+    <div style="overflow-x:auto">
+    <table class="ftable">
+      <thead><tr>
+        <th style="text-align:left;min-width:88px">วันที่</th>
+        <th style="min-width:76px">Actual</th>
+        ${Object.entries(MODELS).map(([k,m])=>`<th style="min-width:82px;color:${m.color}">${m.name}</th>`).join('')}
+        <th style="min-width:78px">สัญญาณ</th>
+        <th style="min-width:72px">แม่นสุด</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+      <tfoot><tr>
+        <td style="font-size:11px;color:var(--muted)">MAE รวม</td><td>—</td>
+        ${maeCells}
+        <td>—</td>
+        <td>${mW?`<b style="color:${MODELS[mW].color}">${MODELS[mW].name}</b>`:'—'}</td>
+      </tr></tfoot>
+    </table>
+    </div>
+  </div>`;
+
+  // render chart
+  const labels=fcDates.map(fmtS);
   const ds=[
-    {label:'Actual',data:chartDates.map(d=>actLog[d]??null),backgroundColor:'#16a34a',borderColor:'#15803d',borderWidth:.5,borderRadius:4,order:0},
+    {label:'Actual',data:fcDates.map(d=>actuals[d]??null),backgroundColor:'#16a34a',borderColor:'#15803d',borderWidth:.5,borderRadius:4,order:0},
     ...Object.entries(MODELS).map(([k,m],i)=>({
       label:m.name,
-      data:chartDates.map(d=>getFcForDate(d)[k]??null),
+      data:fcDates.map(d=>tab.forecasts[d]?.[k]??null),
       backgroundColor:m.color+'33',borderColor:m.color,borderWidth:1.5,borderRadius:3,order:i+1,
     }))
   ];
-  document.getElementById('cleg').innerHTML=
-    `<span class="leg"><span class="leg-sq" style="background:#16a34a"></span>Actual</span>`+
-    Object.entries(MODELS).map(([k,m])=>`<span class="leg"><span class="leg-sq" style="background:${m.color}"></span>${m.name}</span>`).join('');
-  const ctx=document.getElementById('mc').getContext('2d');
+  const ctx=document.getElementById('tab-chart').getContext('2d');
   if(chartInst)chartInst.destroy();
   chartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:ds},options:{
     responsive:true,maintainAspectRatio:false,
@@ -486,223 +523,83 @@ function renderP1(){
     x.fillStyle='rgba(220,38,38,.55)';x.fillText(`>${WATCH}mm ห้ามไถ`,a.left+4,wy-4);
     x.restore();
   }}]});
+}
 
-  // Table
-  const tbody=document.getElementById('ftbody');tbody.innerHTML='';
-  const maefK={gfs:[],ecmwf:[],icon:[],best:[]};
-
-  sortedDates.forEach(d=>{
-    const act=actLog[d];
-    const fc=getFcForDate(d);
-    const hasFc=Object.keys(fc).length>0;
-    const hasBoth=act!==undefined&&act!==null&&hasFc;
-    const errors={};
-    if(hasBoth)Object.keys(fc).forEach(k=>{if(fc[k]!==undefined)errors[k]=Math.abs(fc[k]-act);});
-    const winK=Object.keys(errors).length>0?Object.keys(errors).reduce((a,b)=>errors[b]<errors[a]?b:a):null;
-    if(hasBoth)Object.keys(errors).forEach(k=>maefK[k].push(errors[k]));
-
-    const isT=d===todayStr, isFut=d>todayStr;
-    const tr=document.createElement('tr');
-    if(isT)tr.className='today-row';
-
-    const actCell=act!==undefined&&act!==null
-      ?`<span class="badge ${sigCls(act)}">${act.toFixed(1)}</span>`
-      :`<input class="act-input" type="number" min="0" step="0.1" placeholder="กรอก" data-date="${d}" onchange="saveActual(this)">`;
-
-    const fcCells=Object.keys(MODELS).map(k=>{
-      const v=fc[k];
-      if(v===undefined)return `<span style="color:var(--dim)">—</span>`;
-      const eStr=hasBoth&&errors[k]!==undefined
-        ?` <span class="err-${errors[k]<3?'good':errors[k]<8?'mid':'bad'}" style="font-size:10px">${errors[k].toFixed(1)}</span>`:'';
-      const win=k===winK&&hasBoth;
-      return `<span class="mv" style="color:${MODELS[k].color}">${v.toFixed(1)}</span>${eStr}${win?' 🏆':''}`;
+/* ── GLOBAL SCOREBOARD ── */
+function renderGlobalScoreboard(){
+  const maeSums={},maeCnts={};
+  Object.keys(MODELS).forEach(k=>{maeSums[k]=0;maeCnts[k]=0;});
+  Object.values(store.tabs).forEach(tab=>{
+    const actuals=tab.actuals||{};
+    Object.keys(tab.forecasts||{}).forEach(d=>{
+      const act=actuals[d];if(act===undefined||act===null)return;
+      const fc=tab.forecasts[d]||{};
+      Object.keys(MODELS).forEach(k=>{
+        if(fc[k]!==undefined){maeSums[k]+=Math.abs(fc[k]-act);maeCnts[k]++;}
+      });
     });
-
-    const src=isFut?'📅':isT?'★':'💾';
-    tr.innerHTML=`
-      <td style="font-family:var(--mono);font-size:11px">${fmtL(d)} <span style="font-size:9px;color:var(--dim)">${src}</span></td>
-      <td>${actCell}</td>
-      ${fcCells.map(c=>`<td>${c}</td>`).join('')}
-      <td>${act!==undefined&&act!==null?`<span class="badge ${sigCls(act)}">${sigTxt(act)}</span>`:'<span class="badge na">—</span>'}</td>
-      <td>${winK?`<span style="font-size:11px;font-weight:700;color:${MODELS[winK].color}">${MODELS[winK].name}</span>`:'<span style="color:var(--dim)">—</span>'}</td>`;
-    tbody.appendChild(tr);
   });
-
-  // Footer MAE row
-  const tfoot=document.getElementById('ftfoot');tfoot.innerHTML='';
-  const maeVals={};Object.keys(MODELS).forEach(k=>{if(maefK[k].length>0)maeVals[k]=maefK[k].reduce((a,b)=>a+b,0)/maefK[k].length;});
-  const mW=Object.keys(maeVals).length>0?Object.keys(maeVals).reduce((a,b)=>maeVals[b]<maeVals[a]?b:a):null;
-  const mCells=Object.keys(MODELS).map(k=>{const v=maeVals[k];if(v===undefined)return `<td style="color:var(--dim)">—</td>`;const iW=k===mW;return `<td style="color:${MODELS[k].color};font-weight:${iW?700:500}">${v.toFixed(1)} mm${iW?' 🏆':''}</td>`;});
-  const tf=document.createElement('tr');
-  tf.innerHTML=`<td style="font-size:11px;color:var(--muted)">MAE รวม</td><td>—</td>${mCells.join('')}<td>—</td><td>${mW?`<b style="color:${MODELS[mW].color}">${MODELS[mW].name}</b>`:'—'}</td>`;
-  tfoot.appendChild(tf);
-
-  // Store info
-  const totalSaved=Object.keys(fcLog).length;
-  const totalAct=Object.keys(actLog).filter(d=>actLog[d]!==null).length;
-  document.getElementById('store-info').textContent=`บันทึก Forecast ${totalSaved} วัน · กรอก Actual แล้ว ${totalAct} วัน · เปรียบเทียบได้ ${Object.values(maefK).reduce((a,b)=>Math.max(a,b.length),0)} วัน`;
-  document.getElementById('lu1').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
+  const maes={};Object.keys(MODELS).forEach(k=>{if(maeCnts[k]>0)maes[k]=maeSums[k]/maeCnts[k];});
+  const ranked=Object.entries(maes).sort((a,b)=>a[1]-b[1]);
+  const sb=document.getElementById('global-sb');sb.innerHTML='';
+  Object.keys(MODELS).forEach(k=>{
+    const m=MODELS[k];const mae=maes[k];
+    const rank=ranked.findIndex(r=>r[0]===k);
+    const isWin=k===ranked[0]?.[0]&&mae!==undefined;
+    const div=document.createElement('div');div.className='sb'+(isWin?' win':'');
+    div.innerHTML=`
+      <div class="sb-rank">${mae!==undefined?MEDALS[rank]:'รอข้อมูล'}</div>
+      <div class="sb-name" style="color:${m.color}">${m.name}</div>
+      <div class="sb-mae" style="color:${isWin?'var(--go)':mae!==undefined?'var(--text)':'var(--dim)'}">${mae!==undefined?mae.toFixed(1):'—'}</div>
+      <div class="sb-sub">${mae!==undefined?`mm เฉลี่ย (${maeCnts[k]} วัน)`:'mm เฉลี่ย'}</div>`;
+    sb.appendChild(div);
+  });
 }
 
-function saveActual(input){
-  const d=input.dataset.date;
-  const v=input.value.trim();
-  actLog=loadAct();
-  actLog[d]=v===''?null:Math.round(parseFloat(v)*10)/10;
-  saveAct(actLog);
-  input.className='act-input filled';
-  renderP1();
-}
-
-function clrAll(){
-  if(!confirm('ลบข้อมูล Forecast และ Actual ที่บันทึกทั้งหมด?'))return;
-  try{localStorage.removeItem(LS_FC);localStorage.removeItem(LS_ACT);}catch(e){}
-  fcLog={};actLog={};renderP1();
-}
-
+/* ── EXPORT CSV ── */
 function exportCSV(){
-  fcLog=loadFC();actLog=loadAct();
-  const allD=new Set();
-  Object.values(fcLog).forEach(e=>Object.keys(e.forecasts||{}).forEach(d=>allD.add(d)));
-  Object.keys(actLog).forEach(d=>allD.add(d));
-  const rows=[['วันที่','Actual','GFS','ECMWF','ICON','Best Match','สัญญาณ']];
-  [...allD].sort().forEach(d=>{
-    const act=actLog[d];
-    const fc=getFcForDateExport(d);
-    rows.push([d,act??'',fc.gfs??'',fc.ecmwf??'',fc.icon??'',fc.best??'',act!=null?sigTxt(act):'']);
+  load();
+  const rows=[['Save Date','Target Date','Actual','GFS','ECMWF','ICON','Best Match','MAE GFS','MAE ECMWF','MAE ICON','MAE Best']];
+  Object.entries(store.tabs).sort().forEach(([saveDate,tab])=>{
+    const actuals=tab.actuals||{};
+    Object.entries(tab.forecasts||{}).sort().forEach(([d,fc])=>{
+      const act=actuals[d];
+      rows.push([
+        saveDate,d,
+        act??'',
+        fc.gfs??'',fc.ecmwf??'',fc.icon??'',fc.best??'',
+        act!=null&&fc.gfs!=null?Math.abs(fc.gfs-act).toFixed(1):'',
+        act!=null&&fc.ecmwf!=null?Math.abs(fc.ecmwf-act).toFixed(1):'',
+        act!=null&&fc.icon!=null?Math.abs(fc.icon-act).toFixed(1):'',
+        act!=null&&fc.best!=null?Math.abs(fc.best-act).toFixed(1):'',
+      ]);
+    });
   });
-  function getFcForDateExport(targetDate){
-    const out={};
-    const saveDates=Object.keys(fcLog).sort().filter(s=>s<=targetDate);
-    for(let i=saveDates.length-1;i>=0;i--){
-      const fc=fcLog[saveDates[i]].forecasts?.[targetDate];
-      if(fc&&Object.keys(fc).length>0){Object.assign(out,fc);break;}
-    }
-    return out;
-  }
   const csv=rows.map(r=>r.join(',')).join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download=`FLP2_rainfall_${todayStr}.csv`;a.click();
+  a.download=`FLP2_forecast_${todayStr}.csv`;a.click();
 }
 
-// Helper accessible from saveActual closure
-function getFcForDate(targetDate){
-  const out={};
-  const saveDates=Object.keys(fcLog).sort().filter(s=>s<=targetDate);
-  for(let i=saveDates.length-1;i>=0;i--){
-    const fc=fcLog[saveDates[i]].forecasts?.[targetDate];
-    if(fc&&Object.keys(fc).length>0){Object.assign(out,fc);break;}
-  }
-  return out;
+/* ── CLEAR ── */
+function clearAll(){
+  if(!confirm('ลบข้อมูล Forecast ทั้งหมด? (Actual จากไฟล์จะยังอยู่)'))return;
+  store={tabs:{}};save();activeTab='';
+  document.getElementById('tab-content').innerHTML='<div style="text-align:center;padding:32px;color:var(--dim);font-size:13px">กด <strong>＋</strong> เพื่อบันทึก Forecast วันนี้เป็น tab แรก</div>';
+  renderAll();
 }
 
-/* ═══════════════════════════════════════
-   PAGE 2 — RAIN TIMING
-═══════════════════════════════════════ */
-let H={}, selDate=todayStr, hourlyLoaded=false;
-
-function buildDayBtns(){
-  const row=document.getElementById('day-row');row.innerHTML='';
-  for(let n=-1;n<8;n++){
-    const d=new Date(today);d.setDate(today.getDate()+n);
-    const s=toIso(d);
-    const btn=document.createElement('div');
-    btn.className='dp'+(n===0?' on':'');
-    const lbl=n===-1?'เมื่อวาน':n===0?'วันนี้':n===1?'พรุ่งนี้':`${DAYS[d.getDay()]} ${d.getDate()}`;
-    btn.textContent=lbl;
-    btn.onclick=()=>{
-      document.querySelectorAll('.dp').forEach(b=>b.classList.remove('on'));
-      btn.classList.add('on');selDate=s;renderHourly();
-    };
-    row.appendChild(btn);
-  }
-}
-
-async function lazyHourly(){
-  if(hourlyLoaded)return;
-  document.getElementById('sp2').style.display='block';
-  try{
-    const d=await fetchD(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=precipitation&timezone=Asia%2FBangkok&past_days=2&forecast_days=8&models=best_match`);
-    H={};d.hourly.time.forEach((t,i)=>{const v=d.hourly.precipitation[i];H[t]=v!==null?Math.round(v*10)/10:0;});
-    hourlyLoaded=true;
-    document.getElementById('sdot').className='sdot ok';
-  }catch(e){document.getElementById('sdot').className='sdot warn';}
-  document.getElementById('sp2').style.display='none';
-  renderHourly();renderWeek();
-  document.getElementById('lu2').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
-}
-
-function dayHrs(ds){return Array.from({length:24},(_,h)=>({h,mm:H[`${ds}T${String(h).padStart(2,'0')}:00`]??0}))}
-
-function renderHourly(){
-  const data=dayHrs(selDate);
-  const total=Math.round(data.reduce((a,h)=>a+h.mm,0)*10)/10;
-  const rainHrs=data.filter(h=>h.mm>0);
-  const peak=data.reduce((a,h)=>h.mm>a.mm?h:a,{h:0,mm:0});
-  const isToday=selDate===todayStr, nowH=today.getHours();
-  const maxMm=Math.max(...data.map(h=>h.mm),0.1);
-
-  const sig=document.getElementById('sig');sig.style.display='flex';
-  let sCls,sEm,sTit,sSub;
-  if(total===0){sCls='go';sEm='☀️';sTit='ไม่มีฝน';sSub='ไถแปลงได้ทั้งวัน';}
-  else if(total<5){sCls='go';sEm='🌤';sTit=`ฝนน้อย ${total.toFixed(1)} mm`;sSub='ไถได้ แต่ตรวจดินก่อน';}
-  else if(total<=20){sCls='wat';sEm='⚠️';sTit=`ฝนปานกลาง ${total.toFixed(1)} mm`;sSub='เฝ้าระวัง · ควรเลื่อนไถ';}
-  else{sCls='stop';sEm='🚫';sTit=`ฝนหนัก ${total.toFixed(1)} mm`;sSub='ห้ามไถ · รอแห้ง 1–2 วัน';}
-  sig.className='signal '+sCls;
-  document.getElementById('sig-em').textContent=sEm;
-  document.getElementById('sig-t').textContent=sTit;
-  document.getElementById('sig-s').textContent=sSub;
-
-  document.getElementById('h-tot').textContent=total.toFixed(1);
-  document.getElementById('h-hrs').textContent=rainHrs.length;
-  document.getElementById('h-pk').textContent=peak.mm.toFixed(1);
-  document.getElementById('h-pkt').textContent=peak.mm>0?`mm/hr เวลา ${peak.h}:00 น.`:'mm/hr';
-
-  document.getElementById('tl-title').textContent=`ฝนรายชั่วโมง · ${fmtL(selDate)}`;
-  const bars=document.getElementById('tl-bars');bars.innerHTML='';
-  data.forEach(({h,mm})=>{
-    const pct=Math.max((mm/maxMm)*100,mm>0?4:0);
-    const col=document.createElement('div');col.className='bc'+(isToday&&h===nowH?' now':'');
-    col.title=`${h}:00 น. — ${mm.toFixed(1)} mm`;
-    col.innerHTML=`<div class="bar" style="height:${pct}%;background:${bcolor(mm)}"></div>`;
-    bars.appendChild(col);
-  });
-
-  const rl=document.getElementById('rl');rl.innerHTML='';
-  const maxR=Math.max(...rainHrs.map(h=>h.mm),1);
-  if(rainHrs.length===0){rl.innerHTML='<div class="no-rain">ไม่มีฝนในวันนี้ ☀️</div>';}
-  else rainHrs.forEach(({h,mm})=>{
-    const div=document.createElement('div');div.className='ri';
-    div.innerHTML=`<div class="ri-t">${String(h).padStart(2,'0')}:00</div><div class="ri-track"><div class="ri-fill" style="width:${Math.round((mm/maxR)*100)}%;background:${rlcolor(mm)}"></div></div><div class="ri-mm" style="color:${rlcolor(mm)}">${mm.toFixed(1)} mm</div><div class="ri-lbl">${rlabel(mm)}</div>`;
-    rl.appendChild(div);
-  });
-}
-
-function renderWeek(){
-  const wk=document.getElementById('wk');wk.innerHTML='';
-  const days=[];
-  for(let n=-1;n<8;n++){const d=new Date(today);d.setDate(today.getDate()+n);days.push(toIso(d));}
-  const totals=days.map(s=>dayHrs(s).reduce((a,h)=>a+h.mm,0));
-  days.forEach((s,n)=>{
-    const data=dayHrs(s);const total=Math.round(totals[n]*10)/10;
-    const lbl=n===0?'เมื่อวาน':n===1?'วันนี้':n===2?'พรุ่งนี้':`${DAYS[fromIso(s).getDay()]} ${fromIso(s).getDate()}`;
-    const col=total<5?'#3b82f6':total<=20?'#f59e0b':'#ef4444';
-    const isSel=s===selDate;
-    const row=document.createElement('div');row.className='wr';
-    if(isSel)row.style.background='#eff6ff';
-    row.innerHTML=`<div class="wd-lbl" style="color:${isSel?'#3b82f6':'var(--muted)'};font-weight:${isSel?700:400}">${lbl}</div><div class="wd-bars">${data.map(({mm})=>`<div class="wd-b" style="height:${Math.max((mm/Math.max(...data.map(h=>h.mm),1))*16,mm>0?2:0)}px;background:${bcolor(mm)}"></div>`).join('')}</div><div class="wd-total" style="color:${col}">${total.toFixed(1)}</div>`;
-    row.onclick=()=>{
-      selDate=s;document.querySelectorAll('.dp').forEach((b,i)=>{b.classList.toggle('on',i===n)});
-      renderHourly();renderWeek();
-    };
-    wk.appendChild(row);
-  });
-}
-
-/* ─── BOOT ─── */
-buildDayBtns();
-initP1();
+/* ── BOOT ── */
+load();
+// sync actual ถ้ามี
+Object.keys(store.tabs).forEach(sd=>{
+  if(!store.tabs[sd].actuals)store.tabs[sd].actuals={};
+  Object.entries(actualData).forEach(([d,v])=>{store.tabs[sd].actuals[d]=v;});
+});
+renderAll();
+// auto-add today tab ถ้ายังไม่มี
+if(!store.tabs[todayStr])addTodayTab();
+else{activeTab=todayStr;renderAll();}
 </script>
 </body>
 </html>
