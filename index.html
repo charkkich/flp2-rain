@@ -251,14 +251,26 @@ function handleFile(file){
   if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
-    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+    // อ่านแบบ raw (cellDates:false) เพื่อป้องกัน timezone shift
+    const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true});
     const by={};
     rows.forEach(r=>{
       let dv=r['Date']||r['date']||r['DATE'];if(!dv)return;
-      let d=dv instanceof Date?dv:typeof dv==='number'?new Date(Math.round((dv-25569)*86400*1000)):new Date(dv);
-      if(isNaN(d))return;
-      const iso=toIso(d);
+      let iso='';
+      if(typeof dv==='number'){
+        // Excel serial → UTC date (ไม่ผ่าน timezone)
+        const msUtc=Math.round((dv-25569)*86400*1000);
+        const dt=new Date(msUtc);
+        // ใช้ UTC date เพื่อป้องกัน timezone shift
+        iso=dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');
+      } else if(typeof dv==='string'){
+        // string เช่น "2026-06-05" หรือ "6/5/2026"
+        const m=dv.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if(m)iso=`${m[1]}-${m[2]}-${m[3]}`;
+        else{const dt=new Date(dv);if(!isNaN(dt))iso=dt.getUTCFullYear()+'-'+String(dt.getUTCMonth()+1).padStart(2,'0')+'-'+String(dt.getUTCDate()).padStart(2,'0');}
+      } else return;
+      if(!iso)return;
       const p=parseFloat(r['Precip..Accum.']||0);
       if(!by[iso]||p>by[iso])by[iso]=p;
     });
@@ -283,7 +295,7 @@ function handleFile(file){
 /* ── FETCH ── */
 async function fetchModel(modelKey){
   const m=MODELS[modelKey];
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&forecast_days=8&models=${m.model}`;
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&past_days=1&forecast_days=8&models=${m.model}`;
   const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);
   const j=await r.json();
   const out={};
@@ -303,8 +315,8 @@ async function addTodayTab(){
   await Promise.allSettled(Object.keys(MODELS).map(async k=>{
     try{
       const fc=await fetchModel(k);
-      // เก็บ forecast 7 วันล่วงหน้าจากวันนี้
-      for(let n=0;n<8;n++){
+      // เก็บ forecast: เมื่อวาน (n=-1) ถึง +7 วัน
+      for(let n=-1;n<8;n++){
         const d=new Date(today);d.setDate(today.getDate()+n);
         const ds=toIso(d);
         if(!tab.forecasts[ds])tab.forecasts[ds]={};
