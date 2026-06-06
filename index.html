@@ -322,7 +322,7 @@ let activeTab='';
 let chartInst=null;
 
 /* ── UTILS ── */
-function toIso(d){return d.toISOString().split('T')[0]}
+function toIso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function fromIso(s){return new Date(s+'T00:00:00')}
 function fmtL(s){const d=fromIso(s);return `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`}
 function fmtS(s){const d=fromIso(s);return `${DAYS[d.getDay()]} ${d.getDate()}`}
