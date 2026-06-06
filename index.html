@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FLP2 Rainfall Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#f0f2f8;--white:#fff;--border:#e4e7f0;
+  --text:#1a1d2e;--muted:#6b7299;--dim:#b0b7d4;
+  --blue:#3b82f6;--blue-bg:#eff6ff;--blue-bd:#bfdbfe;
+  --go:#16a34a;--go-bg:#f0fdf4;--go-bd:#86efac;
+  --watch:#d97706;--watch-bg:#fffbeb;--watch-bd:#fcd34d;
+  --stop:#dc2626;--stop-bg:#fef2f2;--stop-bd:#fca5a5;
+  --font:'Sarabun',sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+
+/* ── NAV ── */
+.nav{background:var(--white);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:100}
+.nav-brand{display:flex;align-items:center;gap:9px;padding:12px 0;margin-right:24px;text-decoration:none}
+.nav-logo{width:30px;height:30px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.nav-title{font-size:14px;font-weight:700;color:var(--text)}
+.nav-sub{font-size:9px;color:var(--muted);font-family:var(--mono)}
+.nav-tabs{display:flex;gap:0;flex:1}
+.nav-tab{padding:14px 18px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;transition:all .15s;white-space:nowrap;user-select:none}
+.nav-tab:hover{color:var(--blue)}
+.nav-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.nav-r{display:flex;align-items:center;gap:8px;margin-left:auto}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.sdot.ok{background:#22c55e}.sdot.warn{background:#f59e0b}
+
+/* ── PAGES ── */
+.page{display:none}.page.active{display:block}
+.wrap{max-width:880px;margin:0 auto;padding:20px 18px 40px}
+
+/* ── KEY CARD ── */
+.key-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:16px}
+.key-card h3{font-size:13px;font-weight:700;margin-bottom:4px}
+.key-card p{font-size:11px;color:var(--muted);margin-bottom:10px}
+.key-row{display:flex;gap:8px;flex-wrap:wrap}
+.key-row input{flex:1;min-width:180px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:12px;background:var(--bg);color:var(--text)}
+.key-row input:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);background:var(--blue);color:#fff;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn-sm{padding:5px 12px;font-size:11px;border-radius:6px;cursor:pointer;border:1px solid var(--stop-bd);background:var(--stop-bg);color:var(--stop);font-family:var(--font)}
+#ks{font-size:11px;margin-top:6px;font-family:var(--mono)}
+#ks.ok{color:var(--go)}#ks.err{color:var(--stop)}
+.key-link{color:var(--blue);font-size:11px}
+
+/* ── UPLOAD ── */
+.upload{background:var(--white);border:1.5px dashed var(--border);border-radius:12px;padding:13px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:16px}
+.upload:hover,.upload.drag{border-color:var(--blue);background:var(--blue-bg)}
+.u-icon{font-size:22px;flex-shrink:0}
+.u-text h3{font-size:13px;font-weight:600}
+.u-text p{font-size:11px;color:var(--muted);margin-top:2px}
+#fstatus{font-size:10px;color:var(--go);font-family:var(--mono);margin-top:3px}
+#file-input{display:none}
+
+/* ── SECTION TITLE ── */
+.sec{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:20px 0 10px;display:flex;align-items:center;gap:8px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── API STATUS BAR ── */
+.api-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.ac{background:var(--white);border:1px solid var(--border);border-radius:9px;padding:10px 13px;display:flex;align-items:center;gap:8px}
+.ac-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--dim)}
+.ac-dot.ok{background:var(--go)}.ac-dot.err{background:var(--stop)}
+.ac-name{font-size:11px;font-weight:700}
+.ac-sub{font-size:9px;color:var(--muted);margin-top:1px}
+.ac-val{font-size:14px;font-weight:700;font-family:var(--mono);margin-left:auto}
+
+/* ── METRICS ── */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.mc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.mc-lbl{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.mc-val{font-size:24px;font-weight:700;font-family:var(--mono);line-height:1}
+.mc-sub{font-size:10px;color:var(--dim);margin-top:3px}
+.c-go{color:var(--go)}.c-watch{color:var(--watch)}.c-stop{color:var(--stop)}.c-blue{color:var(--blue)}
+
+/* ── 7-DAY PLANNER ── */
+.planner{display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-bottom:4px}
+.dc{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:10px 5px 9px;text-align:center;transition:transform .15s}
+.dc:hover{transform:translateY(-2px)}
+.dc.go{background:var(--go-bg);border-color:var(--go-bd)}
+.dc.watch{background:var(--watch-bg);border-color:var(--watch-bd)}
+.dc.stop{background:var(--stop-bg);border-color:var(--stop-bd)}
+.dc.ring{outline:2.5px solid var(--blue);outline-offset:2px}
+.dc-dow{font-size:10px;font-weight:700;margin-bottom:2px}
+.dc.go .dc-dow{color:var(--go)}.dc.watch .dc-dow{color:var(--watch)}.dc.stop .dc-dow{color:var(--stop)}.dc .dc-dow{color:var(--muted)}
+.dc-date{font-size:10px;color:var(--dim);margin-bottom:6px}
+.dc-val{font-size:18px;font-weight:700;font-family:var(--mono);line-height:1}
+.dc.go .dc-val{color:var(--go)}.dc.watch .dc-val{color:var(--watch)}.dc.stop .dc-val{color:var(--stop)}.dc .dc-val{color:var(--text)}
+.dc-unit{font-size:9px;color:var(--dim);font-family:var(--mono)}
+.dc-sig{display:inline-block;margin-top:5px;font-size:9px;font-weight:700;padding:2px 5px;border-radius:3px}
+.dc.go .dc-sig{background:var(--go-bd);color:var(--go)}
+.dc.watch .dc-sig{background:var(--watch-bd);color:var(--watch)}
+.dc.stop .dc-sig{background:var(--stop-bd);color:var(--stop)}
+.dc .dc-sig{background:var(--border);color:var(--muted)}
+
+/* ── CHART PANEL ── */
+.chart-panel{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.chart-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.chart-title{font-size:13px;font-weight:700}
+.legend{display:flex;gap:12px;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.leg-sq{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.chart-wrap{position:relative;width:100%;height:220px}
+
+/* ── ACC TABLE ── */
+.acc-panel{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.acc-table{width:100%;border-collapse:collapse;font-size:12px}
+.acc-table th{background:var(--bg);padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.acc-table th:first-child{text-align:left}
+.acc-table td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle}
+.acc-table td:first-child{text-align:left;font-family:var(--mono);font-size:11px}
+.acc-table tr:last-child td{border-bottom:none}
+.acc-table tr:hover td{background:var(--bg)}
+.acc-table tfoot tr td{background:var(--bg);font-weight:700;border-top:2px solid var(--border);border-bottom:none}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
+.badge.go{background:var(--go-bd);color:var(--go)}
+.badge.watch{background:var(--watch-bd);color:var(--watch)}
+.badge.stop{background:var(--stop-bd);color:var(--stop)}
+.badge.na{background:var(--border);color:var(--muted)}
+.err{font-family:var(--mono);font-size:11px;font-weight:600}
+.err.good{color:var(--go)}.err.mid{color:var(--watch)}.err.bad{color:var(--stop)}.err.na{color:var(--dim)}
+.store-bar{background:#f5f3ff;border-top:1px solid #c4b5fd;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.store-bar span{font-size:10px;color:#7c3aed}
+
+/* ── PAGE 2: HOURLY ── */
+.signal{border-radius:12px;padding:18px 20px;margin-bottom:16px;display:none;align-items:center;gap:14px}
+.signal.go{background:var(--go-bg);border:2px solid var(--go-bd)}
+.signal.wat{background:var(--watch-bg);border:2px solid var(--watch-bd)}
+.signal.stop{background:var(--stop-bg);border:2px solid var(--stop-bd)}
+.sig-em{font-size:34px;line-height:1;flex-shrink:0}
+.sig-title{font-size:20px;font-weight:700}
+.signal.go .sig-title{color:#15803d}.signal.wat .sig-title{color:#92400e}.signal.stop .sig-title{color:#991b1b}
+.sig-sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.st{background:var(--white);border-radius:12px;padding:14px;border:1px solid var(--border);text-align:center}
+.st-num{font-size:26px;font-weight:700;font-family:var(--mono);color:var(--blue)}
+.st-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+
+.day-row{display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+.dp{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--muted);white-space:nowrap;transition:all .15s}
+.dp:hover,.dp.on{background:var(--blue);border-color:var(--blue);color:#fff}
+
+.tl-wrap{background:var(--white);border-radius:12px;padding:16px 18px;margin-bottom:14px;border:1px solid var(--border)}
+.tl-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.tl-bars{display:flex;align-items:flex-end;gap:3px;height:90px;margin-bottom:6px}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;cursor:default}
+.bar{width:100%;border-radius:3px 3px 0 0;min-height:2px}
+.bc:hover .bar{opacity:.75}
+.bar-hr{font-size:8px;color:var(--dim);font-family:var(--mono)}
+.bc.now .bar-hr{color:var(--blue);font-weight:700}
+.bc.now .bar{box-shadow:0 0 0 1.5px var(--blue)}
+
+.rain-list{background:var(--white);border-radius:12px;padding:16px;border:1px solid var(--border);margin-bottom:14px}
+.rl-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.ri{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f2f8}
+.ri:last-child{border-bottom:none}
+.ri-t{font-size:14px;font-weight:700;font-family:var(--mono);min-width:52px}
+.ri-track{flex:1;height:10px;background:#f0f2f8;border-radius:5px;overflow:hidden}
+.ri-fill{height:100%;border-radius:5px}
+.ri-mm{font-size:13px;font-weight:600;font-family:var(--mono);min-width:50px;text-align:right}
+.ri-lbl{font-size:11px;color:var(--muted);min-width:68px}
+.no-rain{text-align:center;padding:20px;color:var(--dim);font-size:13px}
+
+.week-card{background:var(--white);border-radius:12px;padding:16px;border:1px solid var(--border)}
+.wk-title{font-size:13px;font-weight:700;margin-bottom:12px}
+.wr{display:flex;align-items:center;gap:8px;margin-bottom:7px;cursor:pointer;border-radius:8px;padding:4px;transition:background .15s}
+.wr:hover{background:var(--bg)}
+.wr:last-child{margin-bottom:0}
+.wd-lbl{font-size:11px;font-weight:600;color:var(--muted);min-width:56px;text-align:right}
+.wd-bars{flex:1;display:flex;gap:2px;height:16px;align-items:flex-end}
+.wd-b{flex:1;border-radius:2px}
+.wd-total{font-size:12px;font-weight:600;font-family:var(--mono);min-width:40px;text-align:right}
+
+/* ── SHARED ── */
+.spin{text-align:center;padding:40px;color:var(--muted);display:none}
+.spin-ring{width:26px;height:26px;border:2.5px solid var(--border);border-top-color:var(--blue);border-radius:50%;margin:8px auto 0;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.foot{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;padding-top:12px;border-top:1px solid var(--border)}
+
+@media(max-width:620px){
+  .metrics,.api-bar{grid-template-columns:repeat(2,1fr)}
+  .planner{grid-template-columns:repeat(4,1fr)}
+  .stats3{grid-template-columns:repeat(2,1fr)}
+  .wrap{padding:12px 12px 32px}
+  .nav-tab{padding:12px 12px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a class="nav-brand" href="#">
+    <div class="nav-logo">🌧</div>
+    <div>
+      <div class="nav-title">FLP2 Rainfall</div>
+      <div class="nav-sub">San Sai · 18.9926°N 98.9706°E</div>
+    </div>
+  </a>
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="showPage('p1',this)">📊 Forecast Accuracy</div>
+    <div class="nav-tab" onclick="showPage('p2',this)">⏱ Rain Timing</div>
+  </div>
+  <div class="nav-r">
+    <div class="sdot" id="sdot"></div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════
+     PAGE 1 — Forecast Accuracy (4 models)
+═══════════════════════════════════════════════ -->
+<div class="page active" id="p1">
+<div class="wrap">
+
+  <div class="key-card">
+    <h3>🔑 API Key (ครั้งแรกเท่านั้น)</h3>
+    <p>สมัครฟรีที่ <a class="key-link" href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a> · เปิดจาก Vercel ไม่ต้องใส่</p>
+    <div class="key-row">
+      <input type="password" id="ak" placeholder="sk-ant-api03-... (ถ้าเปิดจาก Vercel ไม่ต้องใส่)">
+      <button class="btn" onclick="loadAll()">โหลดข้อมูล</button>
+    </div>
+    <div id="ks"></div>
+  </div>
+
+  <div class="upload" id="uzone" onclick="document.getElementById('fi').click()">
+    <div class="u-icon">📂</div>
+    <div class="u-text">
+      <h3>อัปโหลดไฟล์ Actual (.xlsx) จาก EWS WeatherDashboard</h3>
+      <p>ลากมาวาง หรือคลิกเลือกไฟล์ · เปรียบเทียบกับ Forecast 4 model อัตโนมัติ</p>
+      <div id="fstatus">ยังไม่มีไฟล์ Actual</div>
+    </div>
+    <button class="btn" onclick="event.stopPropagation();document.getElementById('fi').click()">เลือกไฟล์</button>
+    <input type="file" id="fi" accept=".xlsx,.xls">
+  </div>
+
+  <div class="spin" id="sp1"><div>กำลังโหลด Forecast จาก 4 models...</div><div class="spin-ring"></div></div>
+
+  <div id="d1" style="display:none">
+
+    <div class="api-bar" id="api-bar"></div>
+
+    <div class="metrics">
+      <div class="mc"><div class="mc-lbl">Best Match วันนี้</div><div class="mc-val c-blue" id="m-td">—</div><div class="mc-sub">mm</div></div>
+      <div class="mc"><div class="mc-lbl">ไถได้ใน 7 วัน</div><div class="mc-val c-go" id="m-go">—</div><div class="mc-sub">วัน</div></div>
+      <div class="mc"><div class="mc-lbl">MAE แม่นสุด</div><div class="mc-val" id="m-mae">—</div><div class="mc-sub" id="m-mae-name">รอ Actual</div></div>
+      <div class="mc"><div class="mc-lbl">เปรียบเทียบได้</div><div class="mc-val" style="color:#7c3aed" id="m-days">0</div><div class="mc-sub">วัน</div></div>
+    </div>
+
+    <div class="sec">แผนไถแปลง 7 วันล่วงหน้า · Best Match</div>
+    <div class="planner" id="fc-grid"></div>
+
+    <div class="sec">กราฟ Actual vs 4 Forecast models</div>
+    <div class="chart-panel">
+      <div class="chart-hdr">
+        <div class="chart-title">ปริมาณฝนรายวัน (mm)</div>
+        <div class="legend" id="cleg"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="mc" role="img" aria-label="Rainfall comparison chart"></canvas></div>
+    </div>
+
+    <div class="sec">ตาราง Accuracy — Forecast vs Actual</div>
+    <div class="acc-panel">
+      <table class="acc-table">
+        <thead><tr>
+          <th style="text-align:left;width:88px">วันที่</th>
+          <th style="width:72px">Actual</th>
+          <th style="width:82px">GFS</th>
+          <th style="width:82px">ECMWF</th>
+          <th style="width:82px">ICON</th>
+          <th style="width:90px">Best Match</th>
+          <th style="width:78px">แม่นสุด</th>
+        </tr></thead>
+        <tbody id="atb"></tbody>
+        <tfoot id="mfr"></tfoot>
+      </table>
+      <div class="store-bar">
+        <span id="stxt">บันทึก Forecast อัตโนมัติทุกวันที่เปิด</span>
+        <button class="btn-sm" onclick="clrSaved()">ลบข้อมูลที่บันทึก</button>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>Actual = EWS WeatherDashboard · inch×25.4=mm</span>
+      <span>Forecast = Open-Meteo · GFS · ECMWF · ICON · Best Match</span>
+      <span>พิกัด 18.9926°N 98.9706°E</span>
+      <span id="lu1">—</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PAGE 2 — Hourly Rain Timing
+═══════════════════════════════════════════════ -->
+<div class="page" id="p2">
+<div class="wrap">
+
+  <div class="day-row" id="day-row"></div>
+
+  <div class="spin" id="sp2" style="display:none"><div>กำลังโหลด Hourly Forecast...</div><div class="spin-ring"></div></div>
+
+  <div id="d2">
+    <div class="signal" id="sig">
+      <div class="sig-em" id="sig-em"></div>
+      <div>
+        <div class="sig-title" id="sig-t"></div>
+        <div class="sig-sub" id="sig-s"></div>
+      </div>
+    </div>
+
+    <div class="stats3">
+      <div class="st"><div class="st-num" id="h-total">—</div><div class="st-lbl">mm รวมทั้งวัน</div></div>
+      <div class="st"><div class="st-num" id="h-hrs">—</div><div class="st-lbl">ชั่วโมงที่ฝนตก</div></div>
+      <div class="st"><div class="st-num" id="h-peak">—</div><div class="st-lbl" id="h-peak-t">mm/hr สูงสุด</div></div>
+    </div>
+
+    <div class="tl-wrap">
+      <div class="tl-title" id="tl-title">ปริมาณฝนรายชั่วโมง</div>
+      <div class="tl-bars" id="tl-bars"></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+        <span class="leg"><span class="leg-sq" style="background:#bfdbfe"></span>เบา</span>
+        <span class="leg"><span class="leg-sq" style="background:var(--blue)"></span>ปานกลาง</span>
+        <span class="leg"><span class="leg-sq" style="background:#f59e0b"></span>หนัก</span>
+        <span class="leg"><span class="leg-sq" style="background:#ef4444"></span>หนักมาก</span>
+      </div>
+    </div>
+
+    <div class="rain-list">
+      <div class="rl-title">ชั่วโมงที่มีฝน</div>
+      <div id="rl"></div>
+    </div>
+
+    <div class="week-card">
+      <div class="wk-title">ภาพรวม 7 วัน (คลิกเพื่อดูรายละเอียด)</div>
+      <div id="wk"></div>
+    </div>
+
+    <div class="foot">
+      <span>Open-Meteo Best Match · Hourly precipitation</span>
+      <span id="lu2">—</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ── SHARED ── */
+const LAT=18.9926,LON=98.9706,GO=5,WATCH=20;
+const DAYS=['อา','จ','อ','พ','พฤ','ศ','ส'];
+const MON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const LS_KEY='flp2_ak', LS_FC='flp2_fc_v4';
+const today=new Date();
+
+function toIso(d){return d.toISOString().split('T')[0]}
+function fromIso(s){return new Date(s+'T00:00:00')}
+function fmtL(s){const d=fromIso(s);return `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`}
+function fmtS(s){const d=fromIso(s);return `${DAYS[d.getDay()]} ${d.getDate()}`}
+function cls(v){return v<GO?'go':v<=WATCH?'watch':'stop'}
+function sig(v){return v<GO?'ไถได้':v<=WATCH?'เฝ้าระวัง':'ห้ามไถ'}
+function bcolor(mm){if(mm<=0)return '#e8ecf8';if(mm<1)return '#dbeafe';if(mm<2)return '#bfdbfe';if(mm<7)return '#3b82f6';if(mm<20)return '#f59e0b';return '#ef4444'}
+function rlabel(mm){return mm<2?'เบา':mm<7?'ปานกลาง':mm<20?'หนัก':'หนักมาก'}
+function rlcolor(mm){return mm<7?'#3b82f6':mm<20?'#f59e0b':'#ef4444'}
+
+/* page nav */
+function showPage(id,tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  tab.classList.add('active');
+}
+
+/* fetch */
+async function fetchD(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+async function fetchP(key,url){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:8192,
+      messages:[{role:'user',content:'Fetch this URL and return ONLY the raw JSON body:\n'+url}]})
+  });
+  if(!r.ok)throw new Error('Proxy '+r.status);
+  const j=await r.json();
+  const t=j.content.find(c=>c.type==='text')?.text||'';
+  const m=t.match(/\{[\s\S]*\}/);if(!m)throw new Error('No JSON');
+  return JSON.parse(m[0]);
+}
+async function smartFetch(url){
+  try{return await fetchD(url);}
+  catch(e){
+    const k=(document.getElementById('ak').value||localStorage.getItem(LS_KEY)||'').trim();
+    if(!k)throw new Error('ต้องการ API key');
+    return fetchP(k,url);
+  }
+}
+
+/* ══════════════════════════════════════════
+   PAGE 1 — ACCURACY
+══════════════════════════════════════════ */
+const MODELS={
+  gfs:  {name:'GFS',  sub:'NOAA USA',    color:'#2563eb',model:'gfs_seamless'},
+  ecmwf:{name:'ECMWF',sub:'European',    color:'#7c3aed',model:'ecmwf_ifs025'},
+  icon: {name:'ICON', sub:'German DWD',  color:'#0d9488',model:'icon_seamless'},
+  best: {name:'Best', sub:'Auto-select', color:'#d97706',model:'best_match'},
+};
+let actual={}, fc={gfs:{},ecmwf:{},icon:{},best:{}}, saved={}, chartInst=null;
+
+function loadSaved(){try{return JSON.parse(localStorage.getItem(LS_FC)||'{}')}catch(e){return {}}}
+function saveDay(d,v){const s=loadSaved();s[d]={...s[d],...v};try{localStorage.setItem(LS_FC,JSON.stringify(s))}catch(e){}}
+function clrSaved(){if(!confirm('ลบข้อมูล Forecast ที่บันทึกทั้งหมด?'))return;try{localStorage.removeItem(LS_FC)}catch(e){}saved={};renderP1()}
+
+/* upload */
+const uz=document.getElementById('uzone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag')});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');handleFile(e.dataTransfer.files[0])});
+document.getElementById('fi').addEventListener('change',e=>handleFile(e.target.files[0]));
+function handleFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
+    const by={};
+    rows.forEach(r=>{
+      let dv=r['Date']||r['date']||r['DATE'];if(!dv)return;
+      let d=dv instanceof Date?dv:typeof dv==='number'?new Date(Math.round((dv-25569)*86400*1000)):new Date(dv);
+      if(isNaN(d))return;
+      const iso=toIso(d);const p=parseFloat(r['Precip..Accum.']||0);
+      if(!by[iso]||p>by[iso])by[iso]=p;
+    });
+    actual={};Object.entries(by).sort().forEach(([d,v])=>{actual[d]=Math.round(v*25.4*10)/10});
+    const ks=Object.keys(actual).sort();
+    document.getElementById('fstatus').textContent=`✓ ${file.name} · ${ks.length} วัน (${fmtL(ks[0])} – ${fmtL(ks[ks.length-1])})`;
+    renderP1();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function loadAll(){
+  const key=(document.getElementById('ak').value||localStorage.getItem(LS_KEY)||'').trim();
+  if(key)try{localStorage.setItem(LS_KEY,key)}catch(e){}
+  const ks=document.getElementById('ks');ks.textContent='';ks.className='';
+  document.getElementById('sp1').style.display='block';
+  document.getElementById('d1').style.display='none';
+  const base=`latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&forecast_days=8`;
+  let ok=false;
+  for(const[k,m]of Object.entries(MODELS)){
+    try{
+      const d=await smartFetch(`https://api.open-meteo.com/v1/forecast?${base}&models=${m.model}`);
+      fc[k]={};d.daily.time.forEach((t,i)=>{const v=d.daily.precipitation_sum[i];fc[k][t]=v!==null?Math.round(v*10)/10:0});
+      ok=true;
+    }catch(e){fc[k]={};}
+  }
+  document.getElementById('sdot').className=ok?'sdot ok':'sdot warn';
+  ks.textContent=ok?'✓ โหลดสำเร็จ':'❌ โหลดไม่ได้';ks.className=ok?'ok':'err';
+  if(!ok){document.getElementById('sp1').style.display='none';return;}
+  saved=loadSaved();
+  renderP1();
+}
+
+function renderP1(){
+  const ts=toIso(today);
+  const refFc=fc.best||fc.gfs;
+  const fcDates=Object.keys(refFc).sort().filter(d=>d>=ts).slice(0,7);
+
+  /* save today */
+  const tv={};Object.keys(MODELS).forEach(k=>{if(fc[k][ts]!==undefined)tv[k]=fc[k][ts]});
+  if(Object.keys(tv).length>0){saveDay(ts,tv);saved=loadSaved();}
+
+  /* api bar */
+  const ab=document.getElementById('api-bar');ab.innerHTML='';
+  Object.entries(MODELS).forEach(([k,m])=>{
+    const v=fc[k][ts];const ok=v!==undefined;
+    const div=document.createElement('div');div.className='ac';
+    div.innerHTML=`<div class="ac-dot ${ok?'ok':'err'}"></div><div><div class="ac-name" style="color:${m.color}">${m.name}</div><div class="ac-sub">${m.sub}</div></div><div class="ac-val" style="color:${m.color}">${ok?v.toFixed(1):'—'}</div>`;
+    ab.appendChild(div);
+  });
+
+  /* metrics */
+  document.getElementById('m-td').textContent=fc.best[ts]!==undefined?fc.best[ts].toFixed(1):'—';
+  document.getElementById('m-go').textContent=fcDates.filter(d=>(fc.best[d]||0)<GO).length;
+  const maes={};
+  Object.keys(MODELS).forEach(k=>{
+    const pairs=Object.keys(saved).filter(d=>actual[d]!==undefined&&saved[d]&&saved[d][k]!==undefined);
+    if(pairs.length>0){const s=pairs.reduce((a,d)=>a+Math.abs(saved[d][k]-actual[d]),0);maes[k]={mae:s/pairs.length,n:pairs.length};}
+  });
+  const maeE=Object.entries(maes);
+  if(maeE.length>0){
+    const win=maeE.reduce((a,b)=>b[1].mae<a[1].mae?b:a);
+    document.getElementById('m-mae').textContent=win[1].mae.toFixed(1)+' mm';
+    document.getElementById('m-mae').className='mc-val '+(win[1].mae<3?'c-go':win[1].mae<8?'c-watch':'c-stop');
+    document.getElementById('m-mae-name').textContent=MODELS[win[0]].name+' แม่นสุด';
+    document.getElementById('m-days').textContent=Object.keys(saved).filter(d=>actual[d]!==undefined).length;
+  }
+
+  /* 7-day planner */
+  const fg=document.getElementById('fc-grid');fg.innerHTML='';
+  fcDates.forEach(d=>{
+    const mm=fc.best[d]||0,dt=fromIso(d),isT=d===ts;
+    const el=document.createElement('div');el.className=`dc ${cls(mm)}${isT?' ring':''}`;
+    el.innerHTML=`<div class="dc-dow">${DAYS[dt.getDay()]}${isT?' ★':''}</div><div class="dc-date">${dt.getDate()} ${MON[dt.getMonth()]}</div><div class="dc-val">${mm.toFixed(1)}</div><div class="dc-unit">mm</div><div class="dc-sig">${sig(mm)}</div>`;
+    fg.appendChild(el);
+  });
+
+  /* chart */
+  const actDates=Object.keys(actual).sort();
+  const allD=[...new Set([...actDates,...fcDates])].sort();
+  const labels=allD.map(fmtS);
+  const ds=[
+    {label:'Actual',data:allD.map(d=>actual[d]!==undefined?actual[d]:null),backgroundColor:'#16a34a',borderColor:'#15803d',borderWidth:.5,borderRadius:4,order:0},
+    ...Object.entries(MODELS).map(([k,m],i)=>({
+      label:m.name,
+      data:allD.map(d=>{
+        if(actual[d]!==undefined&&saved[d]&&saved[d][k]!==undefined)return saved[d][k];
+        if(d>=ts&&fc[k][d]!==undefined)return fc[k][d];return null;
+      }),
+      backgroundColor:m.color+'33',borderColor:m.color,borderWidth:1.5,borderRadius:3,order:i+1,
+    }))
+  ];
+  document.getElementById('cleg').innerHTML=
+    `<span class="leg"><span class="leg-sq" style="background:#16a34a"></span>Actual</span>`+
+    Object.entries(MODELS).map(([k,m])=>`<span class="leg"><span class="leg-sq" style="background:${m.color}"></span>${m.name}</span>`).join('');
+  const ctx=document.getElementById('mc').getContext('2d');
+  if(chartInst)chartInst.destroy();
+  chartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1d2e',borderColor:'#e4e7f0',borderWidth:1,titleColor:'#f0f2f8',bodyColor:'#b0b7d4',callbacks:{label:c=>`${c.dataset.label}: ${c.parsed.y!==null?c.parsed.y.toFixed(1)+' mm':'—'}`}}},scales:{x:{ticks:{font:{size:10,family:'IBM Plex Mono'},color:'#6b7299',autoSkip:false,maxRotation:0},grid:{color:'rgba(228,231,240,.6)'},border:{color:'#e4e7f0'}},y:{beginAtZero:true,title:{display:true,text:'mm',font:{size:10},color:'#6b7299'},ticks:{font:{size:10,family:'IBM Plex Mono'},color:'#6b7299'},grid:{color:'rgba(228,231,240,.6)'},border:{color:'#e4e7f0'}}}},
+  plugins:[{id:'thr',beforeDraw(c){const{ctx:x,chartArea:a,scales:{y}}=c;if(!a)return;const gy=y.getPixelForValue(GO),wy=y.getPixelForValue(WATCH);x.save();x.lineWidth=1;x.setLineDash([3,3]);x.strokeStyle='rgba(22,163,74,.4)';x.beginPath();x.moveTo(a.left,gy);x.lineTo(a.right,gy);x.stroke();x.strokeStyle='rgba(220,38,38,.4)';x.beginPath();x.moveTo(a.left,wy);x.lineTo(a.right,wy);x.stroke();x.setLineDash([]);x.font='9px IBM Plex Mono';x.fillStyle='rgba(22,163,74,.6)';x.fillText(`<${GO}mm ไถได้`,a.left+4,gy-4);x.fillStyle='rgba(220,38,38,.6)';x.fillText(`>${WATCH}mm ห้ามไถ`,a.left+4,wy-4);x.restore();}}]});
+
+  /* acc table */
+  const tbody=document.getElementById('atb');tbody.innerHTML='';
+  const maef={gfs:[],ecmwf:[],icon:[],best:[]};
+  const allDD=[...new Set([...Object.keys(actual),...Object.keys(saved),...fcDates])].sort();
+  allDD.forEach(d=>{
+    const aVal=actual[d];const fVals={};
+    Object.keys(MODELS).forEach(k=>{
+      if(saved[d]&&saved[d][k]!==undefined)fVals[k]=saved[d][k];
+      else if(d>=ts&&fc[k][d]!==undefined)fVals[k]=fc[k][d];
+    });
+    const hasBoth=aVal!==undefined&&Object.keys(fVals).length>0;
+    const errors={};if(hasBoth)Object.keys(fVals).forEach(k=>{errors[k]=Math.abs(fVals[k]-aVal)});
+    let winK=null;if(Object.keys(errors).length>0)winK=Object.keys(errors).reduce((a,b)=>errors[b]<errors[a]?b:a);
+    if(hasBoth)Object.keys(errors).forEach(k=>maef[k].push(errors[k]));
+    const isT=d===ts,isPast=d<ts;
+    const tr=document.createElement('tr');if(isT)tr.style.background='#eff6ff';
+    const aC=aVal!==undefined?`<span class="badge ${cls(aVal)}">${aVal.toFixed(1)}</span>`:`<span style="color:var(--dim);font-size:11px">รอไฟล์</span>`;
+    const fC=Object.keys(MODELS).map(k=>{
+      const v=fVals[k];if(v===undefined)return `<span style="color:var(--dim)">—</span>`;
+      const eStr=hasBoth?` <span class="err ${errors[k]<3?'good':errors[k]<8?'mid':'bad'}">${errors[k].toFixed(1)}</span>`:'';
+      return `<span style="font-family:var(--mono);font-size:12px;font-weight:700;color:${MODELS[k].color}">${v.toFixed(1)}</span>${eStr}${k===winK&&hasBoth?' 🏆':''}`;
+    });
+    const src=isPast?'💾':isT?'★':'⟳';
+    tr.innerHTML=`<td>${fmtL(d)} <span style="font-size:9px;color:var(--dim)">${src}</span></td><td>${aC}</td>${fC.map(c=>`<td>${c}</td>`).join('')}<td>${winK?`<span style="font-size:11px;font-weight:700;color:${MODELS[winK].color}">${MODELS[winK].name}</span>`:'<span style="color:var(--dim)">—</span>'}</td>`;
+    tbody.appendChild(tr);
+  });
+  const mfr=document.getElementById('mfr');mfr.innerHTML='';
+  const maeV={};Object.keys(MODELS).forEach(k=>{if(maef[k].length>0)maeV[k]=maef[k].reduce((a,b)=>a+b,0)/maef[k].length});
+  const mW=Object.keys(maeV).length>0?Object.keys(maeV).reduce((a,b)=>maeV[b]<maeV[a]?b:a):null;
+  const mC=Object.keys(MODELS).map(k=>{const v=maeV[k];if(v===undefined)return `<td style="color:var(--dim)">—</td>`;const iW=k===mW;return `<td style="color:${MODELS[k].color};font-weight:${iW?700:500}">${v.toFixed(1)}${iW?' 🏆':''}</td>`;});
+  const tr2=document.createElement('tr');
+  tr2.innerHTML=`<td style="font-size:11px;font-weight:700;color:var(--muted)">MAE รวม</td><td>—</td>${mC.join('')}<td>${mW?`<b style="color:${MODELS[mW].color}">${MODELS[mW].name}</b>`:'—'}</td>`;
+  mfr.appendChild(tr2);
+  const sC=Object.keys(saved).length,mC2=Object.keys(saved).filter(d=>actual[d]!==undefined).length;
+  document.getElementById('stxt').textContent=`บันทึก ${sC} วัน · Actual ${Object.keys(actual).length} วัน · เปรียบเทียบ ${mC2} วัน`;
+  document.getElementById('lu1').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
+  document.getElementById('sp1').style.display='none';
+  document.getElementById('d1').style.display='block';
+}
+
+/* ══════════════════════════════════════════
+   PAGE 2 — HOURLY
+══════════════════════════════════════════ */
+let H={}, selDate=toIso(today), hourlyLoaded=false;
+
+function buildDayBtns(){
+  const row=document.getElementById('day-row');row.innerHTML='';
+  for(let n=0;n<7;n++){
+    const d=new Date(today);d.setDate(today.getDate()+n);
+    const s=toIso(d);
+    const btn=document.createElement('div');
+    btn.className='dp'+(n===0?' on':'');
+    btn.textContent=n===0?'วันนี้':n===1?'พรุ่งนี้':`${DAYS[d.getDay()]} ${d.getDate()}`;
+    btn.onclick=()=>{
+      document.querySelectorAll('.dp').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');selDate=s;renderHourly();
+    };
+    row.appendChild(btn);
+  }
+}
+
+async function loadHourly(){
+  if(hourlyLoaded)return;
+  document.getElementById('sp2').style.display='block';
+  try{
+    const d=await smartFetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=precipitation&timezone=Asia%2FBangkok&forecast_days=8&models=best_match`);
+    H={};d.hourly.time.forEach((t,i)=>{const v=d.hourly.precipitation[i];H[t]=v!==null?Math.round(v*10)/10:0;});
+    document.getElementById('sdot').className='sdot ok';
+    hourlyLoaded=true;
+  }catch(e){
+    document.getElementById('sdot').className='sdot warn';
+  }
+  document.getElementById('sp2').style.display='none';
+  renderHourly();
+  renderWeek();
+}
+
+function dayHrs(ds){return Array.from({length:24},(_,h)=>({h,mm:H[`${ds}T${String(h).padStart(2,'0')}:00`]??0}))}
+
+function renderHourly(){
+  const data=dayHrs(selDate);
+  const total=Math.round(data.reduce((a,h)=>a+h.mm,0)*10)/10;
+  const rainHrs=data.filter(h=>h.mm>0);
+  const peak=data.reduce((a,h)=>h.mm>a.mm?h:a,{h:0,mm:0});
+  const isToday=selDate===toIso(today), nowH=today.getHours();
+  const maxMm=Math.max(...data.map(h=>h.mm),0.1);
+
+  /* signal */
+  const sigEl=document.getElementById('sig');sigEl.style.display='flex';
+  let sCls,sEm,sTit,sSub;
+  if(total===0){sCls='go';sEm='☀️';sTit='ไม่มีฝน';sSub='ไถแปลงได้ทั้งวัน';}
+  else if(total<5){sCls='go';sEm='🌤';sTit=`ฝนน้อย ${total.toFixed(1)} mm`;sSub='ไถได้ แต่ตรวจดินก่อน';}
+  else if(total<=20){sCls='wat';sEm='⚠️';sTit=`ฝนปานกลาง ${total.toFixed(1)} mm`;sSub='เฝ้าระวัง · ควรเลื่อนไถ';}
+  else{sCls='stop';sEm='🚫';sTit=`ฝนหนัก ${total.toFixed(1)} mm`;sSub='ห้ามไถ · รอแห้ง 1–2 วัน';}
+  sigEl.className='signal '+sCls;
+  document.getElementById('sig-em').textContent=sEm;
+  document.getElementById('sig-t').textContent=sTit;
+  document.getElementById('sig-s').textContent=sSub;
+
+  /* stats */
+  document.getElementById('h-total').textContent=total.toFixed(1);
+  document.getElementById('h-hrs').textContent=rainHrs.length;
+  document.getElementById('h-peak').textContent=peak.mm.toFixed(1);
+  document.getElementById('h-peak-t').textContent=peak.mm>0?`mm/hr เวลา ${peak.h}:00 น.`:'mm/hr';
+
+  /* bar chart */
+  document.getElementById('tl-title').textContent=`ปริมาณฝนรายชั่วโมง · ${fmtL(selDate)}`;
+  const bars=document.getElementById('tl-bars');bars.innerHTML='';
+  data.forEach(({h,mm})=>{
+    const pct=Math.max((mm/maxMm)*100,mm>0?4:0);
+    const col=document.createElement('div');
+    col.className='bc'+(isToday&&h===nowH?' now':'');
+    col.title=`${h}:00 น. — ${mm.toFixed(1)} mm`;
+    col.innerHTML=`<div class="bar" style="height:${pct}%;background:${bcolor(mm)}"></div><div class="bar-hr">${h%4===0?h:''}</div>`;
+    bars.appendChild(col);
+  });
+
+  /* rain list */
+  const rl=document.getElementById('rl');rl.innerHTML='';
+  const maxR=Math.max(...rainHrs.map(h=>h.mm),1);
+  if(rainHrs.length===0){rl.innerHTML='<div class="no-rain">ไม่มีฝนในวันนี้ ☀️</div>';}
+  else{
+    rainHrs.forEach(({h,mm})=>{
+      const pct=Math.round((mm/maxR)*100);
+      const div=document.createElement('div');div.className='ri';
+      div.innerHTML=`<div class="ri-t">${String(h).padStart(2,'0')}:00</div><div class="ri-track"><div class="ri-fill" style="width:${pct}%;background:${rlcolor(mm)}"></div></div><div class="ri-mm" style="color:${rlcolor(mm)}">${mm.toFixed(1)} mm</div><div class="ri-lbl">${rlabel(mm)}</div>`;
+      rl.appendChild(div);
+    });
+  }
+}
+
+function renderWeek(){
+  const wk=document.getElementById('wk');wk.innerHTML='';
+  const totals=[];
+  for(let n=0;n<7;n++){const d=new Date(today);d.setDate(today.getDate()+n);totals.push(dayHrs(toIso(d)).reduce((a,h)=>a+h.mm,0));}
+  const maxT=Math.max(...totals,1);
+  for(let n=0;n<7;n++){
+    const d=new Date(today);d.setDate(today.getDate()+n);
+    const s=toIso(d);const data=dayHrs(s);const total=Math.round(totals[n]*10)/10;
+    const lbl=n===0?'วันนี้':n===1?'พรุ่งนี้':`${DAYS[d.getDay()]} ${d.getDate()}`;
+    const col=total<5?'#3b82f6':total<=20?'#f59e0b':'#ef4444';
+    const isSel=s===selDate;
+    const row=document.createElement('div');row.className='wr';
+    if(isSel)row.style.background='#eff6ff';
+    row.innerHTML=`<div class="wd-lbl" style="color:${isSel?'#3b82f6':''};font-weight:${isSel?700:400}">${lbl}</div><div class="wd-bars">${data.map(({mm})=>`<div class="wd-b" style="height:${Math.max((mm/Math.max(...data.map(h=>h.mm),1))*16,mm>0?2:0)}px;background:${bcolor(mm)}"></div>`).join('')}</div><div class="wd-total" style="color:${col}">${total.toFixed(1)}</div>`;
+    row.onclick=()=>{
+      selDate=s;document.querySelectorAll('.dp').forEach((b,i)=>{b.classList.toggle('on',i===n)});
+      renderHourly();renderWeek();
+    };
+    wk.appendChild(row);
+  }
+  document.getElementById('lu2').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
+}
+
+/* nav tab — load hourly on switch */
+document.querySelectorAll('.nav-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    if(tab.textContent.includes('Rain Timing')&&!hourlyLoaded){loadHourly();}
+  });
+});
+
+/* ── BOOT ── */
+buildDayBtns();
+const savedKey=localStorage.getItem(LS_KEY)||'';
+if(savedKey)document.getElementById('ak').value=savedKey;
+saved=loadSaved();
+loadAll();
+</script>
+</body>
+</html>
