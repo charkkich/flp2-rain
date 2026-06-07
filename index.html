@@ -161,6 +161,23 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .wd-b{flex:1;border-radius:2px}
 .wd-total{font-size:12px;font-weight:600;font-family:var(--mono);min-width:40px;text-align:right}
 
+/* HOURLY ACCURACY */
+.h-upload{background:var(--go-bg);border:1.5px dashed var(--go-bd);border-radius:10px;padding:11px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s;margin-bottom:14px}
+.h-upload:hover,.h-upload.drag{border-color:var(--go);background:#dcfce7}
+.h-model-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.hmt{padding:5px 12px;border-radius:16px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--white);color:var(--muted);transition:all .15s}
+.hmt.on{color:#fff}
+.hacc-table{width:100%;border-collapse:collapse;font-size:12px}
+.hacc-table th{background:var(--bg);padding:7px 10px;text-align:center;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border);white-space:nowrap}
+.hacc-table th:first-child{text-align:left}
+.hacc-table td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;font-family:var(--mono);font-size:12px}
+.hacc-table td:first-child{text-align:left;font-family:var(--font)}
+.hacc-table tr:last-child td{border-bottom:none}
+.hacc-table tr:hover td{background:#fafbff}
+.hacc-table tfoot td{background:var(--bg);font-weight:700;border-top:2px solid var(--border);border-bottom:none}
+.mae-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.mae-chip{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;font-family:var(--mono);border:1px solid var(--border);background:var(--white)}
+.mae-chip.win{border-color:var(--go);background:var(--go-bg);color:var(--go)}
 /* ACCU KEY */
 .accu-key-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .accu-key-box label{font-size:12px;font-weight:600;color:#c2410c;white-space:nowrap}
@@ -292,6 +309,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   </div>
   <div class="spin" id="sp2" style="display:none"><div>กำลังโหลด Hourly Forecast...</div><div class="spin-ring"></div></div>
   <div id="d2">
+
     <div class="signal" id="sig" style="display:none">
       <div class="sig-em" id="sig-em"></div>
       <div><div class="sig-title" id="sig-t"></div><div class="sig-sub" id="sig-s"></div></div>
@@ -301,8 +319,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
       <div class="st"><div class="st-num" id="h-hrs">—</div><div class="st-lbl">ชั่วโมงที่ฝนตก</div></div>
       <div class="st"><div class="st-num" id="h-pk">—</div><div class="st-lbl" id="h-pkt">mm/hr สูงสุด</div></div>
     </div>
+
+    <!-- Forecast bar chart -->
     <div class="card">
-      <div class="card-hdr"><div class="card-title" id="tl-title">ฝนรายชั่วโมง</div>
+      <div class="card-hdr">
+        <div class="card-title" id="tl-title">ฝนรายชั่วโมง</div>
         <div class="legend">
           <span class="leg"><span class="leg-sq" style="background:#bfdbfe"></span>เบา</span>
           <span class="leg"><span class="leg-sq" style="background:#3b82f6"></span>ปานกลาง</span>
@@ -317,6 +338,35 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
         </div>
       </div>
     </div>
+
+    <!-- Hourly Accuracy -->
+    <div class="card" id="hacc-card" style="display:none">
+      <div class="card-hdr">
+        <div class="card-title">Forecast vs Actual รายชั่วโมง</div>
+        <div style="font-size:11px;color:var(--muted)" id="hacc-date-lbl"></div>
+      </div>
+      <div style="padding:14px 16px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">MAE (ยิ่งน้อยยิ่งแม่น)</div>
+        <div class="mae-chips" id="mae-chips"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin:12px 0 8px">ตารางเปรียบเทียบรายชั่วโมง</div>
+        <div style="overflow-x:auto">
+          <table class="hacc-table">
+            <thead><tr>
+              <th style="text-align:left;min-width:60px">ชั่วโมง</th>
+              <th style="min-width:72px;color:var(--go)">Actual mm</th>
+              <th id="th-hm1" style="min-width:72px">—</th>
+              <th id="th-hm2" style="min-width:72px">—</th>
+              <th id="th-hm3" style="min-width:72px">—</th>
+              <th id="th-hm4" style="min-width:72px">—</th>
+              <th id="th-hm5" style="min-width:72px">—</th>
+            </tr></thead>
+            <tbody id="hacc-tbody"></tbody>
+            <tfoot id="hacc-tfoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="card rain-list" style="padding:16px">
       <div class="card-title" style="margin-bottom:12px">ชั่วโมงที่มีฝน</div>
       <div id="rl"></div>
@@ -393,9 +443,10 @@ function handleFile(file){
   fs.textContent='กำลังอ่านไฟล์...';fs.className='warn';
   const reader=new FileReader();
   reader.onload=e=>{
+    const fileBuffer=e.target.result; // เก็บไว้ใช้ซ้ำใน parseHourlyActual
     try{
       // อ่าน raw ไม่ใช้ cellDates เพื่อป้องกัน timezone shift
-      const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
+      const wb=XLSX.read(fileBuffer,{type:'array',cellDates:false});
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true});
       const by={};
       rows.forEach(r=>{
@@ -432,6 +483,8 @@ function handleFile(file){
         fs.textContent='ไม่พบข้อมูล — ตรวจสอบไฟล์อีกครั้ง';fs.className='warn';
       }
       try{renderP1();}catch(e){console.error('renderP1 error:',e);}
+      // parse hourly actual จากไฟล์เดียวกัน (ใช้ buffer เดิม)
+      try{parseHourlyActual(fileBuffer);}catch(err){console.warn('hourly parse:',err);}
     }catch(err){
       fs.textContent='❌ อ่านไฟล์ไม่ได้: '+err.message;fs.className='warn';
     }
@@ -830,8 +883,143 @@ function clearAll(){
 
 /* ══════ PAGE 2 — HOURLY ══════ */
 let H={},selDate=todayStr,hourlyLoaded=false,curHourlyModel='best_match';
-// H เก็บทุก model: H[model][datetime] = mm
-let Hmap={};
+let Hmap={}; // Hmap[model][datetime] = mm forecast
+let HActual={}; // HActual['YYYY-MM-DDTHH:00'] = mm actual (from EWS)
+const HOURLY_MODELS={
+  best_match:'Best Match', gfs_seamless:'GFS',
+  ecmwf_ifs025:'ECMWF', icon_seamless:'ICON', accu:'AccuWeather'
+};
+
+/* ── Hourly Actual Parse (จาก buffer เดียวกับ handleFile) ── */
+function parseHourlyActual(buffer){
+  try{
+    const wb=XLSX.read(buffer,{type:'array',cellDates:false});
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null,raw:true});
+      // รวม Precip.Rate (in/hr) เป็น mm ต่อ 5 นาที แล้วรวมต่อชั่วโมง
+      const byHour={};
+      rows.forEach(r=>{
+        let dtv=r['DateTime']||r['datetime'];
+        if(dtv==null)return;
+        let dt;
+        if(typeof dtv==='number'){
+          // Excel serial with time
+          dt=new Date(Math.round((dtv-25569)*86400*1000));
+        } else if(typeof dtv==='string'){
+          dt=new Date(dtv);
+        } else return;
+        if(isNaN(dt))return;
+        // floor to hour (local)
+        const hKey=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:00`;
+        const rate=parseFloat(r['Precip..Rate.']||0); // in/hr
+        const mm5min=rate*25.4*(5/60); // mm ต่อ 5 นาที
+        byHour[hKey]=(byHour[hKey]||0)+mm5min;
+      });
+      HActual={};
+      Object.entries(byHour).forEach(([k,v])=>{HActual[k]=Math.round(v*10)/10});
+      const dates=[...new Set(Object.keys(HActual).map(k=>k.split('T')[0]))].sort();
+      console.log('Hourly actual parsed:',dates.length,'days',Object.keys(HActual).length,'hours');
+      // ถ้าอยู่หน้า Rain Timing ให้ render ใหม่
+      if(document.getElementById('p2').classList.contains('on')){
+        renderHourly();renderAccuracyTable();
+      }
+  }catch(err){console.warn('parseHourlyActual error:',err);}
+}
+
+/* ── Hourly Accuracy Table ── */
+function renderAccuracyTable(){
+  const dateActuals=Object.keys(HActual).filter(k=>k.startsWith(selDate));
+  if(!dateActuals.length){
+    document.getElementById('hacc-card').style.display='none';
+    return;
+  }
+  document.getElementById('hacc-card').style.display='block';
+  document.getElementById('hacc-date-lbl').textContent=fmtL(selDate);
+
+  // หา model ทั้งหมดที่มีข้อมูลวันนี้
+  const availModels=Object.keys(Hmap).filter(m=>{
+    const key=`${selDate}T00:00`;
+    return Hmap[m]&&Object.keys(Hmap[m]).some(k=>k.startsWith(selDate));
+  });
+
+  // ตั้ง header
+  const thIds=['th-hm1','th-hm2','th-hm3','th-hm4','th-hm5'];
+  thIds.forEach((id,i)=>{
+    const th=document.getElementById(id);
+    if(i<availModels.length){
+      const m=availModels[i];
+      th.textContent=HOURLY_MODELS[m]||m;
+      th.style.display='';
+    } else {
+      th.style.display='none';
+    }
+  });
+
+  // คำนวณ MAE ต่อ model
+  const maeSums=Object.fromEntries(availModels.map(m=>[m,0]));
+  const maeCnts=Object.fromEntries(availModels.map(m=>[m,0]));
+
+  // สร้าง rows — แสดงเฉพาะชั่วโมงที่มี actual > 0 หรือ forecast > 0
+  const hours=Array.from({length:24},(_,h)=>h);
+  const tbody=document.getElementById('hacc-tbody');tbody.innerHTML='';
+
+  hours.forEach(h=>{
+    const hKey=`${selDate}T${String(h).padStart(2,'0')}:00`;
+    const act=HActual[hKey]??null;
+    const fcVals=Object.fromEntries(availModels.map(m=>[m,Hmap[m]?.[hKey]??null]));
+    const hasAny=act!==null||Object.values(fcVals).some(v=>v!==null&&v>0);
+    if(!hasAny)return;
+
+    const errors={};
+    if(act!==null){
+      availModels.forEach(m=>{
+        if(fcVals[m]!==null){
+          errors[m]=Math.abs(fcVals[m]-act);
+          maeSums[m]+=errors[m];maeCnts[m]++;
+        }
+      });
+    }
+    const winM=Object.keys(errors).length?Object.keys(errors).reduce((a,b)=>errors[b]<errors[a]?b:a):null;
+
+    const tr=document.createElement('tr');
+    const actCell=act!==null
+      ?`<span style="font-weight:700;color:var(--go)">${act.toFixed(1)}</span>`
+      :'<span style="color:var(--dim)">—</span>';
+    const fcCells=availModels.map(m=>{
+      const v=fcVals[m];
+      if(v===null)return '<td><span style="color:var(--dim)">—</span></td>';
+      const isWin=m===winM&&act!==null;
+      const eStr=act!==null&&errors[m]!==undefined
+        ?` <span style="font-size:10px;color:${errors[m]<2?'var(--go)':errors[m]<5?'var(--watch)':'var(--stop)'}">${errors[m].toFixed(1)}</span>`:'';
+      return `<td><span style="font-weight:700;color:${isWin?'var(--go)':'var(--text)'}">${v.toFixed(1)}</span>${eStr}${isWin?' 🏆':''}</td>`;
+    }).join('');
+
+    tr.innerHTML=`<td>${String(h).padStart(2,'0')}:00</td><td>${actCell}</td>${fcCells}`;
+    tbody.appendChild(tr);
+  });
+
+  // MAE footer
+  const maes=Object.fromEntries(availModels.map(m=>[m,maeCnts[m]>0?maeSums[m]/maeCnts[m]:null]));
+  const winMAE=availModels.filter(m=>maes[m]!==null).reduce((a,b)=>maes[b]<maes[a]?b:a,availModels[0]);
+  const tfoot=document.getElementById('hacc-tfoot');tfoot.innerHTML='';
+  const tf=document.createElement('tr');
+  const mfCells=availModels.map(m=>{
+    const v=maes[m];
+    if(v===null)return '<td style="color:var(--dim)">—</td>';
+    return `<td style="color:${m===winMAE?'var(--go)':'var(--muted)'};font-weight:${m===winMAE?700:500}">${v.toFixed(1)}${m===winMAE?' 🏆':''}</td>`;
+  }).join('');
+  tf.innerHTML=`<td style="font-weight:700;color:var(--muted)">MAE รวม</td><td>—</td>${mfCells}`;
+  tfoot.appendChild(tf);
+
+  // MAE chips
+  const chips=document.getElementById('mae-chips');chips.innerHTML='';
+  const sortedMAE=availModels.filter(m=>maes[m]!==null).sort((a,b)=>maes[a]-maes[b]);
+  sortedMAE.forEach((m,i)=>{
+    const chip=document.createElement('div');
+    chip.className='mae-chip'+(i===0?' win':'');
+    chip.innerHTML=`${i===0?'🥇':i===1?'🥈':'🥉'} ${HOURLY_MODELS[m]||m}: <strong>${maes[m].toFixed(1)} mm</strong>`;
+    chips.appendChild(chip);
+  });
+}
 
 function buildDayBtns(){
   const row=document.getElementById('day-row');row.innerHTML='';
@@ -841,7 +1029,7 @@ function buildDayBtns(){
     const btn=document.createElement('div');
     btn.className='dp'+(n===0?' on':'');
     btn.textContent=n===-1?'เมื่อวาน':n===0?'วันนี้':n===1?'พรุ่งนี้':`${DAYS[d.getDay()]} ${d.getDate()}`;
-    btn.onclick=()=>{document.querySelectorAll('.dp').forEach(b=>b.classList.remove('on'));btn.classList.add('on');selDate=s;renderHourly();};
+    btn.onclick=()=>{document.querySelectorAll('.dp').forEach(b=>b.classList.remove('on'));btn.classList.add('on');selDate=s;renderHourly();renderAccuracyTable();};
     row.appendChild(btn);
   }
 }
@@ -877,7 +1065,7 @@ async function loadHourlyModel(model){
     }catch(e){document.getElementById('sdot').className='sdot warn';}
     document.getElementById('sp2').style.display='none';
   }
-  renderHourly();renderWeek();
+  renderHourly();renderWeek();renderAccuracyTable();
   document.getElementById('lu2').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
 }
 
@@ -952,7 +1140,7 @@ function renderWeek(){
     if(isSel)row.style.background='#eff6ff';
     const maxH=Math.max(...data.map(h=>h.mm),1);
     row.innerHTML=`<div class="wd-lbl" style="color:${isSel?'#3b82f6':'var(--muted)'};font-weight:${isSel?700:400}">${lbl}</div><div class="wd-bars">${data.map(({mm})=>`<div class="wd-b" style="height:${Math.max((mm/maxH)*16,mm>0?2:0)}px;background:${bcolor(mm)}"></div>`).join('')}</div><div class="wd-total" style="color:${col}">${total.toFixed(1)}</div>`;
-    row.onclick=()=>{selDate=s;document.querySelectorAll('.dp').forEach((b,i)=>{b.classList.toggle('on',i===n)});renderHourly();renderWeek();};
+    row.onclick=()=>{selDate=s;document.querySelectorAll('.dp').forEach((b,i)=>{b.classList.toggle('on',i===n)});renderHourly();renderWeek();renderAccuracyTable();};
     wk.appendChild(row);
   });
 }
