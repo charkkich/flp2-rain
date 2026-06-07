@@ -1107,22 +1107,89 @@ function renderHourly(){
   document.getElementById('h-pkt').textContent=peak.mm>0?`mm/hr เวลา ${peak.h}:00 น.`:'mm/hr';
   const mLabel={'best_match':'Best Match','gfs_seamless':'GFS','ecmwf_ifs025':'ECMWF','icon_seamless':'ICON','accu':'AccuWeather'};
   document.getElementById('tl-title').textContent=`ฝนรายชั่วโมง · ${fmtL(selDate)} · ${mLabel[curHourlyModel]||curHourlyModel}`;
+  // ดึง Actual รายชั่วโมงของวันที่เลือก
+  const actHrs=Array.from({length:24},(_,h)=>{
+    const key=`${selDate}T${String(h).padStart(2,'0')}:00`;
+    return {h, mm: HActual[key]??null};
+  });
+  const hasActual=actHrs.some(a=>a.mm!==null);
+  const maxAll=Math.max(...data.map(h=>h.mm),...actHrs.map(a=>a.mm??0),0.1);
+
+  // legend dynamic
+  const legEl=document.querySelector('#tl-bars')?.closest('.card')?.querySelector('.legend');
+  if(legEl){
+    legEl.innerHTML=hasActual
+      ?`<span class="leg"><span class="leg-sq" style="background:#16a34a"></span>Actual (EWS)</span>
+        <span class="leg"><span class="leg-sq" style="background:#3b82f6"></span>Forecast</span>`
+      :`<span class="leg"><span class="leg-sq" style="background:#bfdbfe"></span>เบา</span>
+        <span class="leg"><span class="leg-sq" style="background:#3b82f6"></span>ปานกลาง</span>
+        <span class="leg"><span class="leg-sq" style="background:#f59e0b"></span>หนัก</span>
+        <span class="leg"><span class="leg-sq" style="background:#ef4444"></span>หนักมาก</span>`;
+  }
+
+  // bar chart — ถ้ามี Actual แสดงคู่กัน
   const bars=document.getElementById('tl-bars');bars.innerHTML='';
+  if(hasActual) bars.style.height='120px'; else bars.style.height='80px';
+
   data.forEach(({h,mm})=>{
-    const pct=Math.max((mm/maxMm)*100,mm>0?4:0);
-    const col=document.createElement('div');col.className='bc'+(isToday&&h===nowH?' now':'');
-    col.title=`${h}:00 น. — ${mm.toFixed(1)} mm`;
-    col.innerHTML=`<div class="bar" style="height:${pct}%;background:${bcolor(mm)}"></div>`;
+    const actMm=actHrs[h].mm;
+    const col=document.createElement('div');
+    col.className='bc'+(isToday&&h===nowH?' now':'');
+
+    if(hasActual){
+      // แสดงแท่งคู่: Actual (เขียว) + Forecast (น้ำเงิน)
+      const actPct=actMm!==null?Math.max((actMm/maxAll)*100,actMm>0?3:0):0;
+      const fcPct=Math.max((mm/maxAll)*100,mm>0?3:0);
+      col.title=`${h}:00 น. | Actual: ${actMm!==null?actMm.toFixed(1):'—'} mm | Fc: ${mm.toFixed(1)} mm`;
+      col.style.cssText='flex:1;display:flex;align-items:flex-end;justify-content:center;gap:1px;padding-bottom:0';
+      col.innerHTML=`
+        <div style="width:45%;height:${actPct}%;background:#16a34a;border-radius:2px 2px 0 0;min-height:${actMm>0?2:0}px" title="Actual ${actMm!==null?actMm.toFixed(1):'0'} mm"></div>
+        <div style="width:45%;height:${fcPct}%;background:${bcolor(mm)};border-radius:2px 2px 0 0;min-height:${mm>0?2:0}px" title="Fc ${mm.toFixed(1)} mm"></div>`;
+    } else {
+      const pct=Math.max((mm/maxAll)*100,mm>0?4:0);
+      col.title=`${h}:00 น. — ${mm.toFixed(1)} mm`;
+      col.innerHTML=`<div class="bar" style="height:${pct}%;background:${bcolor(mm)}"></div>`;
+    }
     bars.appendChild(col);
   });
+
+  // rain list — เพิ่ม Actual ถ้ามี
   const rl=document.getElementById('rl');rl.innerHTML='';
-  const maxR=Math.max(...rainHrs.map(h=>h.mm),1);
-  if(!rainHrs.length){rl.innerHTML='<div class="no-rain">ไม่มีฝนในวันนี้ ☀️</div>';}
-  else rainHrs.forEach(({h,mm})=>{
-    const div=document.createElement('div');div.className='ri';
-    div.innerHTML=`<div class="ri-t">${String(h).padStart(2,'0')}:00</div><div class="ri-track"><div class="ri-fill" style="width:${Math.round((mm/maxR)*100)}%;background:${rlcolor(mm)}"></div></div><div class="ri-mm" style="color:${rlcolor(mm)}">${mm.toFixed(1)} mm</div><div class="ri-lbl">${rlabel(mm)}</div>`;
-    rl.appendChild(div);
-  });
+  const rainActHrs=actHrs.filter(a=>a.mm!==null&&a.mm>0);
+  const rainFcHrs=data.filter(h=>h.mm>0);
+  const allRainHrs=[...new Set([...rainActHrs.map(a=>a.h),...rainFcHrs.map(f=>f.h)])].sort((a,b)=>a-b);
+
+  if(!allRainHrs.length){
+    rl.innerHTML='<div class="no-rain">ไม่มีฝนในวันนี้ ☀️</div>';
+  } else {
+    const maxR=Math.max(...allRainHrs.map(h=>Math.max(actHrs[h].mm??0,data[h].mm??0)),1);
+    allRainHrs.forEach(h=>{
+      const fcMm=data[h].mm;
+      const actMm=actHrs[h].mm;
+      const dispMm=actMm!==null?actMm:fcMm;
+      const div=document.createElement('div');div.className='ri';
+      div.innerHTML=`
+        <div class="ri-t">${String(h).padStart(2,'0')}:00</div>
+        <div class="ri-track" style="position:relative">
+          ${actMm!==null?`<div class="ri-fill" style="width:${Math.round((actMm/maxR)*100)}%;background:#16a34a;opacity:.9"></div>`:''}
+        </div>
+        <div class="ri-track" style="position:relative;margin-left:4px">
+          <div class="ri-fill" style="width:${Math.round((fcMm/maxR)*100)}%;background:${rlcolor(fcMm)}"></div>
+        </div>
+        <div style="display:flex;gap:4px;min-width:110px;justify-content:flex-end">
+          ${actMm!==null?`<span class="ri-mm" style="color:#16a34a;min-width:48px">${actMm.toFixed(1)}</span>`:'<span class="ri-mm" style="color:var(--dim)">—</span>'}
+          <span class="ri-mm" style="color:${rlcolor(fcMm)};min-width:48px">${fcMm.toFixed(1)}</span>
+        </div>`;
+      rl.appendChild(div);
+    });
+    // header label
+    if(hasActual){
+      const hdr=document.createElement('div');
+      hdr.style.cssText='display:flex;gap:4px;padding:0 0 6px;border-bottom:1px solid var(--border);margin-bottom:4px;font-size:10px;font-weight:700;color:var(--muted)';
+      hdr.innerHTML=`<span style="min-width:50px"></span><span style="flex:1">Actual</span><span style="width:4px"></span><span style="flex:1">Forecast</span><span style="min-width:110px;text-align:right">Actual / Forecast mm</span>`;
+      rl.prepend(hdr);
+    }
+  }
 }
 
 function renderWeek(){
