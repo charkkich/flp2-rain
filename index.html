@@ -892,6 +892,43 @@ function renderWeek(){
 }
 
 /* ── BOOT ── */
+// migrate ข้อมูลเก่าจาก v5/v6 เข้า v7
+(function migrateLegacy(){
+  ['flp2_v5','flp2_v6'].forEach(oldKey=>{
+    try{
+      const raw=localStorage.getItem(oldKey);
+      if(!raw)return;
+      const old=JSON.parse(raw);
+      if(!old.tabs)return;
+      const cur=JSON.parse(localStorage.getItem(LS)||'{"tabs":{}}');
+      // merge tabs — ถ้า tab วันนั้นยังไม่มีใน v7 ให้เอาจาก old มา
+      Object.entries(old.tabs).forEach(([date,tab])=>{
+        if(!cur.tabs[date]){
+          // แปลง format เก่า (ถ้ามี) ให้ตรงกับ v7
+          if(!tab.forecasts&&tab.fc_for){
+            // format เก่ามาก
+            const forecasts={};
+            (tab.fc_for||[]).forEach(fc=>{
+              if(!forecasts[fc.date])forecasts[fc.date]={};
+              Object.keys(fc).filter(k=>k!=='date').forEach(k=>{forecasts[fc.date][k]=fc[k];});
+            });
+            tab.forecasts=forecasts;
+          }
+          cur.tabs[date]=tab;
+        } else {
+          // merge actuals ถ้ามี
+          if(tab.actuals){
+            if(!cur.tabs[date].actuals)cur.tabs[date].actuals={};
+            Object.assign(cur.tabs[date].actuals, tab.actuals);
+          }
+        }
+      });
+      localStorage.setItem(LS,JSON.stringify(cur));
+      console.log('Migrated from',oldKey,'→',LS);
+    }catch(e){console.warn('migrate error:',e);}
+  });
+})();
+
 loadStore();
 buildDayBtns();
 // โหลด AccuWeather key
