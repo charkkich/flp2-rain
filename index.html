@@ -463,20 +463,36 @@ function getAccuKey(){
 async function fetchAccuDaily(){
   const key=getAccuKey();
   if(!key)throw new Error('ไม่มี AccuWeather key');
-  // Step 1: หา location key
-  const locR=await fetch(`https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey=${key}&q=${LAT},${LON}&language=th-TH`);
-  if(!locR.ok)throw new Error('AccuWeather location error '+locR.status);
+  const headers={'Authorization':`Bearer ${key}`};
+  // Step 1: หา location key จาก geoposition
+  const locR=await fetch(
+    `https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?q=${LAT},${LON}&language=th-TH`,
+    {headers}
+  );
+  if(!locR.ok){
+    const txt=await locR.text();
+    throw new Error(`Location error ${locR.status}: ${txt.slice(0,120)}`);
+  }
   const locJ=await locR.json();
   const locKey=locJ.Key;
+  if(!locKey)throw new Error('ไม่พบ location key');
   // Step 2: 5-day daily forecast
-  const fcR=await fetch(`https://dataservice.accuweather.com/forecasts/v1/daily/5day/${locKey}?apikey=${key}&language=th-TH&metric=true&details=true`);
-  if(!fcR.ok)throw new Error('AccuWeather forecast error '+fcR.status);
+  const fcR=await fetch(
+    `https://dataservice.accuweather.com/forecasts/v1/daily/5day/${locKey}?language=th-TH&metric=true&details=true`,
+    {headers}
+  );
+  if(!fcR.ok){
+    const txt=await fcR.text();
+    throw new Error(`Forecast error ${fcR.status}: ${txt.slice(0,120)}`);
+  }
   const fcJ=await fcR.json();
   const out={};
   fcJ.DailyForecasts.forEach(d=>{
     const date=d.Date.split('T')[0];
-    const mm=d.Day?.TotalLiquid?.Value??d.Rain?.Value??0;
-    out[date]=Math.round(mm*10)/10;
+    // precipitation ใน metric มีหน่วย mm
+    const mmDay  = d.Day?.TotalLiquid?.Value??0;
+    const mmNight= d.Night?.TotalLiquid?.Value??0;
+    out[date]=Math.round((mmDay+mmNight)*10)/10;
   });
   return out;
 }
@@ -484,17 +500,26 @@ async function fetchAccuDaily(){
 async function fetchAccuHourly(){
   const key=getAccuKey();
   if(!key)throw new Error('ไม่มี AccuWeather key');
-  const locR=await fetch(`https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey=${key}&q=${LAT},${LON}`);
-  if(!locR.ok)throw new Error('AccuWeather location error');
+  const headers={'Authorization':`Bearer ${key}`};
+  const locR=await fetch(
+    `https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?q=${LAT},${LON}`,
+    {headers}
+  );
+  if(!locR.ok)throw new Error('Location error '+locR.status);
   const locKey=(await locR.json()).Key;
-  const fcR=await fetch(`https://dataservice.accuweather.com/forecasts/v1/hourly/12hour/${locKey}?apikey=${key}&metric=true&details=true`);
-  if(!fcR.ok)throw new Error('AccuWeather hourly error');
+  if(!locKey)throw new Error('ไม่พบ location key');
+  // 12-hour hourly forecast (Starter plan)
+  const fcR=await fetch(
+    `https://dataservice.accuweather.com/forecasts/v1/hourly/12hour/${locKey}?metric=true&details=true`,
+    {headers}
+  );
+  if(!fcR.ok)throw new Error('Hourly error '+fcR.status);
   const fcJ=await fcR.json();
   const out={};
   fcJ.forEach(h=>{
     const dt=new Date(h.EpochDateTime*1000);
-    const localStr=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:00`;
-    out[localStr]=Math.round((h.TotalLiquid?.Value??h.Rain?.Value??0)*10)/10;
+    const iso=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:00`;
+    out[iso]=Math.round((h.TotalLiquid?.Value??h.Rain?.Value??0)*10)/10;
   });
   return out;
 }
@@ -508,7 +533,7 @@ async function addTab(saveDate){
   await Promise.allSettled(Object.keys(MODELS).map(async k=>{
     try{
       // Skip AccuWeather ถ้าไม่มี key
-      if(k==='accu'&&!getAccuKey())return;
+      if(k==='accu'&&!getAccuKey()){console.log('AccuWeather: ไม่มี key ข้าม');return;}
       const fc=await fetchModel(k);
       const sd=fromIso(saveDate);
       for(let n=-1;n<8;n++){
