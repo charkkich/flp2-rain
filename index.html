@@ -161,6 +161,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 .wd-b{flex:1;border-radius:2px}
 .wd-total{font-size:12px;font-weight:600;font-family:var(--mono);min-width:40px;text-align:right}
 
+/* ACCU KEY */
+.accu-key-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.accu-key-box label{font-size:12px;font-weight:600;color:#c2410c;white-space:nowrap}
+.accu-key-box input{flex:1;min-width:180px;padding:6px 10px;border:1px solid #fed7aa;border-radius:6px;font-family:var(--mono);font-size:12px;background:#fff;color:var(--text)}
+.accu-key-box input:focus{outline:2px solid #e85d04;border-color:#e85d04}
+/* MODEL SELECT */
+.model-select{padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;font-family:var(--font);background:var(--white);color:var(--text);cursor:pointer}
+.model-select:focus{outline:2px solid var(--blue)}
 /* MISC */
 .btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);background:var(--blue);color:#fff}
 .btn:hover{opacity:.88}
@@ -222,6 +230,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
     <input type="file" id="file-input" accept=".xlsx,.xls">
   </div>
 
+  <!-- ACCUWEATHER KEY -->
+  <div class="accu-key-box" id="accu-key-box">
+    <span>🟠</span>
+    <label>AccuWeather API Key</label>
+    <input type="password" id="accu-key" placeholder="ใส่ key จาก developer.accuweather.com (ฟรี 14 วัน)" oninput="saveAccuKey()">
+    <span id="accu-status" style="font-size:11px;font-family:var(--mono);color:var(--muted)">ไม่มี key → ไม่แสดงข้อมูล AccuWeather</span>
+  </div>
+
   <!-- TAB BAR -->
   <div class="tab-bar-wrap">
     <div class="tab-bar-top">
@@ -256,7 +272,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 <!-- ═══════ PAGE 2 — RAIN TIMING ═══════ -->
 <div class="pg" id="p2">
 <div class="wrap">
-  <div class="day-row" id="day-row"></div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <div class="day-row" id="day-row" style="margin-bottom:0;flex:1"></div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+      <label style="font-size:11px;color:var(--muted);font-weight:600">Model:</label>
+      <select class="model-select" id="hourly-model-sel" onchange="changeHourlyModel()">
+        <option value="best_match">Best Match</option>
+        <option value="gfs_seamless">GFS (NOAA)</option>
+        <option value="ecmwf_ifs025">ECMWF</option>
+        <option value="icon_seamless">ICON</option>
+        <option value="accu">AccuWeather</option>
+      </select>
+    </div>
+  </div>
   <div class="spin" id="sp2" style="display:none"><div>กำลังโหลด Hourly Forecast...</div><div class="spin-ring"></div></div>
   <div id="d2">
     <div class="signal" id="sig" style="display:none">
@@ -310,8 +338,10 @@ const MODELS={
   ecmwf:{name:'ECMWF', color:'#7c3aed',model:'ecmwf_ifs025'},
   icon: {name:'ICON',  color:'#0d9488',model:'icon_seamless'},
   best: {name:'Best',  color:'#d97706',model:'best_match'},
+  accu: {name:'AccuWeather',color:'#e85d04',model:'accu'},
 };
-const MEDALS=['🥇','🥈','🥉','4️⃣'];
+const MEDALS=['🥇','🥈','🥉','4️⃣','5️⃣'];
+const LS_ACCU='flp2_accu_key';
 const today=new Date();
 const todayStr=toIso(today);
 const yesterdayStr=toIso(new Date(today.getFullYear(),today.getMonth(),today.getDate()-1));
@@ -407,12 +437,65 @@ function handleFile(file){
 /* ── FETCH MODEL ── */
 async function fetchModel(modelKey){
   const m=MODELS[modelKey];
-  // past_days=1 เพื่อให้ได้เมื่อวาน
+  if(modelKey==='accu'){
+    return fetchAccuDaily();
+  }
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&past_days=1&forecast_days=8&models=${m.model}`;
   const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);
   const j=await r.json();
   const out={};
   j.daily.time.forEach((t,i)=>{const v=j.daily.precipitation_sum[i];out[t]=v!==null?Math.round(v*10)/10:0;});
+  return out;
+}
+
+/* ── ACCUWEATHER ── */
+function saveAccuKey(){
+  const k=document.getElementById('accu-key').value.trim();
+  try{localStorage.setItem(LS_ACCU,k);}catch(e){}
+  document.getElementById('accu-status').textContent=k?'✓ มี key · จะโหลด AccuWeather ด้วย':'ไม่มี key → ไม่แสดงข้อมูล AccuWeather';
+  document.getElementById('accu-status').style.color=k?'#e85d04':'var(--muted)';
+}
+
+function getAccuKey(){
+  return (document.getElementById('accu-key').value||localStorage.getItem(LS_ACCU)||'').trim();
+}
+
+async function fetchAccuDaily(){
+  const key=getAccuKey();
+  if(!key)throw new Error('ไม่มี AccuWeather key');
+  // Step 1: หา location key
+  const locR=await fetch(`https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey=${key}&q=${LAT},${LON}&language=th-TH`);
+  if(!locR.ok)throw new Error('AccuWeather location error '+locR.status);
+  const locJ=await locR.json();
+  const locKey=locJ.Key;
+  // Step 2: 5-day daily forecast
+  const fcR=await fetch(`https://dataservice.accuweather.com/forecasts/v1/daily/5day/${locKey}?apikey=${key}&language=th-TH&metric=true&details=true`);
+  if(!fcR.ok)throw new Error('AccuWeather forecast error '+fcR.status);
+  const fcJ=await fcR.json();
+  const out={};
+  fcJ.DailyForecasts.forEach(d=>{
+    const date=d.Date.split('T')[0];
+    const mm=d.Day?.TotalLiquid?.Value??d.Rain?.Value??0;
+    out[date]=Math.round(mm*10)/10;
+  });
+  return out;
+}
+
+async function fetchAccuHourly(){
+  const key=getAccuKey();
+  if(!key)throw new Error('ไม่มี AccuWeather key');
+  const locR=await fetch(`https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey=${key}&q=${LAT},${LON}`);
+  if(!locR.ok)throw new Error('AccuWeather location error');
+  const locKey=(await locR.json()).Key;
+  const fcR=await fetch(`https://dataservice.accuweather.com/forecasts/v1/hourly/12hour/${locKey}?apikey=${key}&metric=true&details=true`);
+  if(!fcR.ok)throw new Error('AccuWeather hourly error');
+  const fcJ=await fcR.json();
+  const out={};
+  fcJ.forEach(h=>{
+    const dt=new Date(h.EpochDateTime*1000);
+    const localStr=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}T${String(dt.getHours()).padStart(2,'0')}:00`;
+    out[localStr]=Math.round((h.TotalLiquid?.Value??h.Rain?.Value??0)*10)/10;
+  });
   return out;
 }
 
@@ -424,8 +507,9 @@ async function addTab(saveDate){
   let ok=false;
   await Promise.allSettled(Object.keys(MODELS).map(async k=>{
     try{
+      // Skip AccuWeather ถ้าไม่มี key
+      if(k==='accu'&&!getAccuKey())return;
       const fc=await fetchModel(k);
-      // เก็บ: เมื่อวาน (saveDate-1) + saveDate + 7 วันหน้า
       const sd=fromIso(saveDate);
       for(let n=-1;n<8;n++){
         const d=new Date(sd);d.setDate(sd.getDate()+n);
@@ -434,7 +518,7 @@ async function addTab(saveDate){
         if(fc[ds]!==undefined)tab.forecasts[ds][k]=fc[ds];
       }
       ok=true;
-    }catch(e){}
+    }catch(e){console.warn(k,'fetch failed:',e.message);}
   }));
   document.getElementById('sdot').className=ok?'sdot ok':'sdot warn';
   if(ok){
@@ -679,7 +763,9 @@ function clearAll(){
 }
 
 /* ══════ PAGE 2 — HOURLY ══════ */
-let H={},selDate=todayStr,hourlyLoaded=false;
+let H={},selDate=todayStr,hourlyLoaded=false,curHourlyModel='best_match';
+// H เก็บทุก model: H[model][datetime] = mm
+let Hmap={};
 
 function buildDayBtns(){
   const row=document.getElementById('day-row');row.innerHTML='';
@@ -694,19 +780,52 @@ function buildDayBtns(){
   }
 }
 
-async function lazyHourly(){
-  if(hourlyLoaded)return;
-  document.getElementById('sp2').style.display='block';
-  try{
-    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=precipitation&timezone=Asia%2FBangkok&past_days=2&forecast_days=8&models=best_match`);
-    const j=await r.json();
-    H={};j.hourly.time.forEach((t,i)=>{const v=j.hourly.precipitation[i];H[t]=v!==null?Math.round(v*10)/10:0;});
-    hourlyLoaded=true;
-    document.getElementById('sdot').className='sdot ok';
-  }catch(e){document.getElementById('sdot').className='sdot warn';}
-  document.getElementById('sp2').style.display='none';
+async function loadHourlyModel(model){
+  if(model==='accu'){
+    const key=getAccuKey();
+    if(!key){
+      alert('กรุณาใส่ AccuWeather API key ในหน้า Accuracy ก่อนครับ');
+      document.getElementById('hourly-model-sel').value=curHourlyModel;
+      return;
+    }
+    document.getElementById('sp2').style.display='block';
+    try{
+      const data=await fetchAccuHourly();
+      Hmap['accu']=data;
+      H=data;
+      document.getElementById('sdot').className='sdot ok';
+    }catch(e){
+      alert('AccuWeather hourly: '+e.message);
+      document.getElementById('sdot').className='sdot warn';
+    }
+    document.getElementById('sp2').style.display='none';
+  } else {
+    document.getElementById('sp2').style.display='block';
+    try{
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&hourly=precipitation&timezone=Asia%2FBangkok&past_days=2&forecast_days=8&models=${model}`);
+      const j=await r.json();
+      const out={};
+      j.hourly.time.forEach((t,i)=>{const v=j.hourly.precipitation[i];out[t]=v!==null?Math.round(v*10)/10:0;});
+      Hmap[model]=out;H=out;
+      document.getElementById('sdot').className='sdot ok';
+    }catch(e){document.getElementById('sdot').className='sdot warn';}
+    document.getElementById('sp2').style.display='none';
+  }
   renderHourly();renderWeek();
   document.getElementById('lu2').textContent='อัปเดต '+new Date().toLocaleString('th-TH',{timeStyle:'short'});
+}
+
+async function lazyHourly(){
+  if(hourlyLoaded)return;
+  hourlyLoaded=true;
+  await loadHourlyModel(curHourlyModel);
+}
+
+async function changeHourlyModel(){
+  const sel=document.getElementById('hourly-model-sel').value;
+  curHourlyModel=sel;
+  if(Hmap[sel]){H=Hmap[sel];renderHourly();renderWeek();}
+  else await loadHourlyModel(sel);
 }
 
 function dayHrs(ds){return Array.from({length:24},(_,h)=>({h,mm:H[`${ds}T${String(h).padStart(2,'0')}:00`]??0}))}
@@ -732,7 +851,8 @@ function renderHourly(){
   document.getElementById('h-hrs').textContent=rainHrs.length;
   document.getElementById('h-pk').textContent=peak.mm.toFixed(1);
   document.getElementById('h-pkt').textContent=peak.mm>0?`mm/hr เวลา ${peak.h}:00 น.`:'mm/hr';
-  document.getElementById('tl-title').textContent=`ฝนรายชั่วโมง · ${fmtL(selDate)}`;
+  const mLabel={'best_match':'Best Match','gfs_seamless':'GFS','ecmwf_ifs025':'ECMWF','icon_seamless':'ICON','accu':'AccuWeather'};
+  document.getElementById('tl-title').textContent=`ฝนรายชั่วโมง · ${fmtL(selDate)} · ${mLabel[curHourlyModel]||curHourlyModel}`;
   const bars=document.getElementById('tl-bars');bars.innerHTML='';
   data.forEach(({h,mm})=>{
     const pct=Math.max((mm/maxMm)*100,mm>0?4:0);
@@ -774,6 +894,9 @@ function renderWeek(){
 /* ── BOOT ── */
 loadStore();
 buildDayBtns();
+// โหลด AccuWeather key
+const _ak=localStorage.getItem(LS_ACCU)||'';
+if(_ak){document.getElementById('accu-key').value=_ak;saveAccuKey();}
 renderGlobalScoreboard();
 // auto-add tab: เมื่อวาน ถ้าไม่มี → เพิ่มอัตโนมัติ
 // วันนี้ → เพิ่มอัตโนมัติ
