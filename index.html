@@ -242,8 +242,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <div class="tab-bar-wrap">
     <div class="tab-bar-top">
       <div class="dtab-scroll" id="date-tabs"></div>
-      <div class="dtab-add-btn" onclick="addTab(todayStr)" title="บันทึก Forecast วันนี้">
-        ＋ บันทึก Forecast วันนี้
+      <div style="display:flex;flex-shrink:0;border-left:1px solid var(--border)">
+        <div class="dtab-add-btn" onclick="addTab(todayStr)" title="บันทึก Forecast วันนี้">
+          ＋ บันทึก Forecast วันนี้
+        </div>
+        <div class="dtab-add-btn" style="color:var(--blue);border-left:1px solid var(--border)" onclick="refreshTodayFc()" title="รีเฟรช Forecast วันนี้ (เพิ่ม model ที่ขาด)">
+          ↻ รีเฟรช
+        </div>
       </div>
     </div>
     <div class="tab-content" id="tab-content">
@@ -522,6 +527,42 @@ async function fetchAccuHourly(){
     out[iso]=Math.round((h.TotalLiquid?.Value??h.Rain?.Value??0)*10)/10;
   });
   return out;
+}
+
+/* ── REFRESH TODAY FC ── */
+async function refreshTodayFc(){
+  // ดึง model ที่ยังไม่มีใน tab วันนี้ (ไม่ลบข้อมูลเก่า)
+  if(!store.tabs[todayStr]){
+    await addTab(todayStr);return;
+  }
+  document.getElementById('sp1').style.display='block';
+  const tab=store.tabs[todayStr];
+  if(!tab.forecasts)tab.forecasts={};
+  if(!tab.actuals)tab.actuals={};
+  let refreshed=false;
+  await Promise.allSettled(Object.keys(MODELS).map(async k=>{
+    try{
+      if(k==='accu'&&!getAccuKey())return;
+      // ดึงใหม่ทุก model (อัปเดตค่าล่าสุด)
+      const fc=await fetchModel(k);
+      const sd=fromIso(todayStr);
+      for(let n=-1;n<8;n++){
+        const d=new Date(sd);d.setDate(sd.getDate()+n);
+        const ds=toIso(d);
+        if(!tab.forecasts[ds])tab.forecasts[ds]={};
+        if(fc[ds]!==undefined)tab.forecasts[ds][k]=fc[ds];
+      }
+      refreshed=true;
+    }catch(e){console.warn(k,'refresh failed:',e.message);}
+  }));
+  // merge actual ปัจจุบัน
+  Object.entries(actualData).forEach(([d,v])=>{tab.actuals[d]=v;});
+  store.tabs[todayStr]=tab;
+  saveStore();
+  document.getElementById('sp1').style.display='none';
+  document.getElementById('sdot').className=refreshed?'sdot ok':'sdot warn';
+  renderP1();
+  switchTab(todayStr);
 }
 
 /* ── ADD TAB ── */
