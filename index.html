@@ -631,7 +631,7 @@ function renderTabContent(saveDate){
 
   // Table
   let tableRows='';
-  const maefK={gfs:[],ecmwf:[],icon:[],best:[]};
+  const maefK=Object.fromEntries(Object.keys(MODELS).map(k=>[k,[]]));
   fcDates.forEach(d=>{
     const fc=tab.forecasts[d]||{};
     const act=actuals[d];
