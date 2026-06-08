@@ -277,8 +277,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
   <div class="sec">🏆 ความแม่นยำรวมทุก tab (MAE — ยิ่งน้อยยิ่งดี)</div>
   <div class="scoreboard" id="global-sb"></div>
 
-  <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px">
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:8px;flex-wrap:wrap">
     <button class="btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn-ghost" onclick="resetAndRestart()" style="color:var(--blue);border-color:var(--blue-bd)">🔄 Refresh Forecast วันนี้</button>
     <button class="btn-sm" onclick="clearAll()">ลบข้อมูลทั้งหมด</button>
   </div>
 
@@ -400,6 +401,7 @@ const LS_ACCU='flp2_accu_key';
 const today=new Date();
 const todayStr=toIso(today);
 const yesterdayStr=toIso(new Date(today.getFullYear(),today.getMonth(),today.getDate()-1));
+const START_DATE='2026-06-05'; // วันเริ่มต้น — lock ไว้
 
 let store={tabs:{}};
 let actualData={};
@@ -418,7 +420,27 @@ function rlabel(mm){return mm<2?'เบา':mm<7?'ปานกลาง':mm<20?'
 function rlcolor(mm){return mm<7?'#3b82f6':mm<20?'#f59e0b':'#ef4444'}
 
 /* ── STORAGE ── */
-function loadStore(){try{const d=localStorage.getItem(LS);store=d?JSON.parse(d):{tabs:{}};}catch(e){store={tabs:{}};}}
+// Seed data — ข้อมูล Forecast ที่บันทึกไว้ก่อนหน้า
+const SEED_DATA={"tabs":{"2026-06-06":{"forecasts":{"2026-06-06":{"best":32.2,"ecmwf":26,"gfs":16,"icon":10.2},"2026-06-07":{"best":23.2,"ecmwf":25.1,"gfs":7.5,"icon":3.4},"2026-06-08":{"best":15.8,"ecmwf":15.9,"gfs":0.3,"icon":0},"2026-06-09":{"best":12.5,"ecmwf":11.1,"gfs":6.4,"icon":0.5},"2026-06-10":{"best":42.7,"ecmwf":25.9,"gfs":25.9,"icon":4.7},"2026-06-11":{"best":46.7,"ecmwf":50.1,"gfs":5.2,"icon":6.2},"2026-06-12":{"best":35.1,"ecmwf":41.2,"gfs":6.2,"icon":4.3},"2026-06-13":{"best":31,"ecmwf":30.8,"gfs":3.2,"icon":0}},"actuals":{"2026-06-01":0,"2026-06-02":0,"2026-06-03":0,"2026-06-04":18.8,"2026-06-05":1.3,"2026-06-06":25.4,"2026-06-07":11.2,"2026-06-08":11.2},"savedAt":"2026-06-06T08:09:03.934Z"},"2026-06-07":{"forecasts":{"2026-06-07":{"best":16.8,"icon":1.9,"ecmwf":23.5,"gfs":14.5},"2026-06-08":{"best":12.1,"icon":0,"ecmwf":12.8,"gfs":9.8},"2026-06-09":{"best":12.1,"icon":1.3,"ecmwf":9.8,"gfs":11},"2026-06-10":{"best":25.7,"icon":11.2,"ecmwf":18.5,"gfs":8.9},"2026-06-11":{"best":31.8,"icon":17.8,"ecmwf":35.7,"gfs":15.4},"2026-06-12":{"best":26.5,"icon":14.2,"ecmwf":28.4,"gfs":9.1},"2026-06-13":{"best":27.1,"icon":3.6,"ecmwf":21.4,"gfs":3.8},"2026-06-14":{"best":17.8,"icon":5.6,"ecmwf":24.5,"gfs":3.6}},"actuals":{"2026-06-06":25.4,"2026-06-07":11.2,"2026-06-08":11.2},"savedAt":"2026-06-07T00:00:00.000Z"},"2026-06-08":{"forecasts":{"2026-06-07":{"gfs":14.5,"ecmwf":23.5,"icon":1.9,"best":16.8},"2026-06-08":{"gfs":9.8,"ecmwf":12.8,"icon":0,"best":12.1,"accu":9.6},"2026-06-09":{"gfs":11,"ecmwf":9.8,"icon":1.3,"best":12.1,"accu":15.8},"2026-06-10":{"gfs":8.9,"ecmwf":18.5,"icon":11.2,"best":25.7,"accu":21.6},"2026-06-11":{"gfs":15.4,"ecmwf":35.7,"icon":17.8,"best":31.8,"accu":21.6},"2026-06-12":{"gfs":9.1,"ecmwf":28.4,"icon":14.2,"best":26.5,"accu":38.3},"2026-06-13":{"gfs":3.8,"ecmwf":21.4,"icon":3.6,"best":27.1},"2026-06-14":{"gfs":3.6,"ecmwf":24.5,"icon":5.6,"best":17.8},"2026-06-15":{"gfs":2.7,"ecmwf":32.4,"icon":0,"best":30.6}},"actuals":{"2026-06-06":25.4,"2026-06-07":11.2,"2026-06-08":11.2},"savedAt":"2026-06-08T01:19:13.061Z"}}};
+
+function loadStore(){
+  try{
+    const d=localStorage.getItem(LS);
+    store=d?JSON.parse(d):{tabs:{}};
+    // inject seed data ถ้ายังไม่มี tab นั้น
+    let seeded=false;
+    Object.entries(SEED_DATA.tabs).forEach(([date,tab])=>{
+      if(!store.tabs[date]){store.tabs[date]=tab;seeded=true;}
+      else{
+        // merge actuals ถ้ามี
+        if(tab.actuals&&!store.tabs[date].actuals){
+          store.tabs[date].actuals=tab.actuals;seeded=true;
+        }
+      }
+    });
+    if(seeded)localStorage.setItem(LS,JSON.stringify(store));
+  }catch(e){store={tabs:{}};}
+}
 function saveStore(){try{localStorage.setItem(LS,JSON.stringify(store));}catch(e){}}
 
 /* ── NAV ── */
@@ -498,7 +520,10 @@ async function fetchModel(modelKey){
   if(modelKey==='accu'){
     return fetchAccuDaily();
   }
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&past_days=1&forecast_days=8&models=${m.model}`;
+  // คำนวณ past_days จาก START_DATE ถึงวันนี้
+  const startD=fromIso(START_DATE);
+  const pastDays=Math.max(1,Math.ceil((today-startD)/(86400*1000)));
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&daily=precipitation_sum&timezone=Asia%2FBangkok&past_days=${pastDays}&forecast_days=8&models=${m.model}`;
   const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);
   const j=await r.json();
   const out={};
@@ -598,9 +623,10 @@ async function refreshTodayFc(){
       if(k==='accu'&&!getAccuKey())return;
       // ดึงใหม่ทุก model (อัปเดตค่าล่าสุด)
       const fc=await fetchModel(k);
-      const sd=fromIso(todayStr);
-      for(let n=-1;n<8;n++){
-        const d=new Date(sd);d.setDate(sd.getDate()+n);
+      const startR=fromIso(START_DATE);
+      const sdR=fromIso(todayStr);
+      const endR=new Date(sdR);endR.setDate(sdR.getDate()+7);
+      for(let d=new Date(startR);d<=endR;d.setDate(d.getDate()+1)){
         const ds=toIso(d);
         if(!tab.forecasts[ds])tab.forecasts[ds]={};
         if(fc[ds]!==undefined)tab.forecasts[ds][k]=fc[ds];
@@ -629,9 +655,11 @@ async function addTab(saveDate){
       // Skip AccuWeather ถ้าไม่มี key
       if(k==='accu'&&!getAccuKey()){console.log('AccuWeather: ไม่มี key ข้าม');return;}
       const fc=await fetchModel(k);
+      // เก็บ forecast ตั้งแต่ START_DATE จนถึง saveDate+7
+      const startSave=fromIso(START_DATE);
       const sd=fromIso(saveDate);
-      for(let n=-1;n<8;n++){
-        const d=new Date(sd);d.setDate(sd.getDate()+n);
+      const endSave=new Date(sd);endSave.setDate(sd.getDate()+7);
+      for(let d=new Date(startSave);d<=endSave;d.setDate(d.getDate()+1)){
         const ds=toIso(d);
         if(!tab.forecasts[ds])tab.forecasts[ds]={};
         if(fc[ds]!==undefined)tab.forecasts[ds][k]=fc[ds];
@@ -879,6 +907,23 @@ function exportCSV(){
 function clearAll(){
   if(!confirm('ลบข้อมูล Forecast ทั้งหมด?'))return;
   store={tabs:{}};saveStore();activeTab='';renderP1();
+}
+
+async function resetAndRestart(){
+  if(!confirm(`ลบข้อมูลเก่าทั้งหมด แล้วเริ่มใหม่?\nระบบจะดึง Forecast ใหม่ โดยเริ่ม Forecast จากวันที่ ${START_DATE}`))return;
+  store={tabs:{}};saveStore();activeTab='';
+  // เริ่ม boot ใหม่
+  document.getElementById('sp1').style.display='block';
+  document.getElementById('sp1').querySelector('div').textContent='กำลังดึง Forecast ใหม่...';
+  const toAdd=[];
+  const start=fromIso(START_DATE);
+  for(let d=new Date(start);d<=today;d.setDate(d.getDate()+1)){
+    toAdd.push(toIso(d));
+  }
+  for(const d of toAdd)await addTab(d);
+  document.getElementById('sp1').style.display='none';
+  activeTab=todayStr;
+  renderP1();
 }
 
 /* ══════ PAGE 2 — HOURLY ══════ */
@@ -1256,14 +1301,20 @@ buildDayBtns();
 const _ak=localStorage.getItem(LS_ACCU)||'';
 if(_ak){document.getElementById('accu-key').value=_ak;saveAccuKey();}
 renderGlobalScoreboard();
-// auto-add tab: เมื่อวาน ถ้าไม่มี → เพิ่มอัตโนมัติ
-// วันนี้ → เพิ่มอัตโนมัติ
+// auto-add tab ทุกวันตั้งแต่ START_DATE จนถึงวันนี้
 (async()=>{
   const toAdd=[];
-  if(!store.tabs[yesterdayStr])toAdd.push(yesterdayStr);
-  if(!store.tabs[todayStr])toAdd.push(todayStr);
+  const start=fromIso(START_DATE);
+  const end=today;
+  // วนทุกวันตั้งแต่ START_DATE ถึงวันนี้
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    const ds=toIso(d);
+    if(!store.tabs[ds])toAdd.push(ds);
+  }
   if(toAdd.length>0){
     document.getElementById('sp1').style.display='block';
+    document.getElementById('sp1').querySelector('div').textContent=
+      `กำลังโหลด Forecast ${toAdd.length} วันที่ขาด...`;
     for(const d of toAdd)await addTab(d);
     document.getElementById('sp1').style.display='none';
   }
